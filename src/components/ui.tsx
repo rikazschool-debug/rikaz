@@ -47,6 +47,7 @@ interface ButtonProps {
   icon?: LucideIcon;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
+  colors?: { primary?: string; primaryPressed?: string; primaryForeground?: string };
 }
 
 const BTN: Record<ButtonVariant, { bg: string; pressed: string; fg: string; border?: string }> = {
@@ -56,8 +57,16 @@ const BTN: Record<ButtonVariant, { bg: string; pressed: string; fg: string; bord
   destructive: { bg: COLORS.destructiveTint, pressed: "#F8DCDA", fg: COLORS.destructive },
 };
 
-export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "primary", loading, disabled, icon: Icon, style, accessibilityHint }) => {
-  const v = BTN[variant];
+export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "primary", loading, disabled, icon: Icon, style, accessibilityHint, colors }) => {
+  const base = BTN[variant];
+  const v = variant === "primary" && colors
+    ? {
+        ...base,
+        bg: colors.primary ?? base.bg,
+        pressed: colors.primaryPressed ?? base.pressed,
+        fg: colors.primaryForeground ?? base.fg,
+      }
+    : base;
   const off = disabled || loading;
   return (
     <Pressable
@@ -99,14 +108,26 @@ interface FieldProps extends Omit<TextInputProps, "style"> {
   /** للأرقام والرموز والبريد: إدخال من اليسار لليمين */
   ltr?: boolean;
   large?: boolean;
+  colors?: {
+    primary?: string;
+    border?: string;
+    inputBackground?: string;
+    foreground?: string;
+    mutedForeground?: string;
+    destructive?: string;
+  };
 }
 
-export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error, ltr, large, editable = true, onFocus, onBlur, ...rest }, ref) => {
+export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error, ltr, large, editable = true, onFocus, onBlur, colors, ...rest }, ref) => {
   const [focused, setFocused] = useState(false);
-  const borderColor = error ? COLORS.destructive : focused ? COLORS.primary : COLORS.border;
+  const borderColor = error
+    ? colors?.destructive ?? COLORS.destructive
+    : focused
+      ? colors?.primary ?? COLORS.primary
+      : colors?.border ?? COLORS.border;
   return (
     <View style={styles.field}>
-      <AppText variant="label" color={COLORS.foreground}>
+      <AppText variant="label" color={colors?.foreground ?? COLORS.foreground}>
         {label}
       </AppText>
       <TextInput
@@ -114,7 +135,7 @@ export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error
         editable={editable}
         accessibilityLabel={label}
         accessibilityHint={hint}
-        placeholderTextColor="#8A9697"
+        placeholderTextColor={colors?.mutedForeground ?? "#8A9697"}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);
@@ -126,18 +147,18 @@ export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error
         style={[
           styles.input,
           large && styles.inputLarge,
-          { borderColor, borderWidth: focused || error ? 1.5 : 1 },
+          { borderColor, borderWidth: focused || error ? 1.5 : 1, backgroundColor: colors?.inputBackground ?? COLORS.inputBg, color: colors?.foreground ?? COLORS.foreground },
           !editable && styles.inputDisabled,
           ltr ? styles.ltr : styles.rtl,
         ]}
         {...rest}
       />
       {error ? (
-        <AppText variant="caption" color={COLORS.destructive} accessibilityLiveRegion="polite">
+        <AppText variant="caption" color={colors?.destructive ?? COLORS.destructive} accessibilityLiveRegion="polite">
           {error}
         </AppText>
       ) : hint ? (
-        <AppText variant="caption" color={COLORS.mutedForeground}>
+        <AppText variant="caption" color={colors?.mutedForeground ?? COLORS.mutedForeground}>
           {hint}
         </AppText>
       ) : null}
@@ -192,9 +213,20 @@ export interface SegmentOption<T extends string> {
   icon: LucideIcon;
 }
 
-export function Segmented<T extends string>({ options, value, onChange, label }: { options: SegmentOption<T>[]; value: T; onChange: (v: T) => void; label: string }) {
+export function Segmented<T extends string>({ options, value, onChange, label, colors }: { options: SegmentOption<T>[]; value: T; onChange: (v: T) => void; label: string; colors?: { primary?: string; primaryTint?: string; muted?: string; mutedForeground?: string; border?: string } }) {
   return (
-    <View style={styles.segment} accessibilityRole="tablist" accessibilityLabel={label}>
+    <View
+      style={[
+        styles.segment,
+        {
+          backgroundColor: colors?.muted ?? COLORS.muted,
+          borderColor: colors?.border ?? "transparent",
+          borderWidth: colors?.border ? 1 : 0,
+        },
+      ]}
+      accessibilityRole="tablist"
+      accessibilityLabel={label}
+    >
       {options.map((o) => {
         const on = o.key === value;
         const Icon = o.icon;
@@ -205,11 +237,15 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             accessibilityLabel={o.label}
-            style={[styles.segmentItem, on && styles.segmentOn]}
+            style={[
+              styles.segmentItem,
+              on && styles.segmentOn,
+              on && colors?.primaryTint ? { backgroundColor: colors.primaryTint } : null,
+            ]}
           >
-            <Icon size={22} color={on ? COLORS.primary : COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
+            <Icon size={22} color={on ? colors?.primary ?? COLORS.primary : colors?.mutedForeground ?? COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
             <Text
-              style={[styles.segmentText, { color: on ? COLORS.primary : COLORS.mutedForeground, fontFamily: on ? FONTS.bold : FONTS.medium }]}
+              style={[styles.segmentText, { color: on ? colors?.primary ?? COLORS.primary : colors?.mutedForeground ?? COLORS.mutedForeground, fontFamily: on ? FONTS.bold : FONTS.medium }]}
             >
               {o.label}
             </Text>

@@ -9,9 +9,9 @@ export const CONFIG = {
   platformUrl: httpsOrigin(process.env.EXPO_PUBLIC_PLATFORM_URL || VPS_PLATFORM_URL),
   /** خدمات الهوية مستقلة عن عنوان Auth/PostgREST وعن روابط واجهة الويب. */
   authUrl: httpsOrigin(process.env.EXPO_PUBLIC_AUTH_API_URL || VPS_PLATFORM_URL),
-  /**
-   * الدخول برقم الهوية (الطالب، ولي الأمر، الموظفون) يحتاج نقاط دخول عامة في المنصة لم تُنشأ بعد
-   * (انظر docs/PLATFORM_INTEGRATION.md). يبقى معطلًا حتى تُنشأ، ويُفعَّل بالقيمة 1.
-   */
+  /** الخدمات منشورة؛ يبقى الدخول الحقيقي مغلقًا حتى قبول اختبارات الطالب وولي الأمر. */
   idLoginEnabled: process.env.EXPO_PUBLIC_MOBILE_ID_LOGIN === "1",
+  /** معاينة مرئية في التطوير فقط؛ لا تفعّل أي طلبات دخول. */
+  loginDesignPreviewEnabled:
+    __DEV__ && process.env.EXPO_PUBLIC_MOBILE_LOGIN_PREVIEW === "1",
 };

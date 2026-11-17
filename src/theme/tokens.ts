@@ -69,6 +69,25 @@ export const FONTS = {
   extrabold: "Cairo_800ExtraBold",
 } as const;
 
+/** ألوان شاشة الدخول المأخوذة من مرجع التصميم المرفق؛ بقية التطبيق تحتفظ بنظامها الحالي. */
+export const LOGIN_COLORS = {
+  background: "#FAF8FF",
+  surface: "#FFFFFF",
+  surfaceLow: "#F2F3FF",
+  surfaceContainer: "#EAEDFF",
+  primary: "#00236F",
+  primaryPressed: "#00164E",
+  primaryContainer: "#1E3A8A",
+  primaryTint: "#DCE1FF",
+  secondary: "#006398",
+  foreground: "#131B2E",
+  mutedForeground: "#444651",
+  border: "#C5C5D3",
+  inputBackground: "#F2F3FF",
+  destructive: "#BA1A1A",
+  onPrimary: "#FFFFFF",
+} as const;
+
 export type FontWeightName = keyof typeof FONTS;
 
 /** سلّم الخطوط: الحجم وارتفاع السطر (Cairo يحتاج ارتفاع سطر واسعًا للحروف العربية) */
