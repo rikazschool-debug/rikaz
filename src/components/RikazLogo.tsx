@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import Svg, { Defs, Mask, Rect, Path, G } from "react-native-svg";
+import Svg, { Defs, Mask, Rect, Path } from "react-native-svg";
 import { COLORS } from "../theme/tokens";
 
 interface RikazLogoProps {

@@ -1,24 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { CONFIG } from "../config";
 
-// SecureStore adapter for mobile session persistence
+// حفظ الجلسة مشفّرة في مخزن الجهاز الآمن (Keychain / Keystore)
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string): Promise<string | null> => {
-    return SecureStore.getItemAsync(key);
-  },
-  setItem: (key: string, value: string): Promise<void> => {
-    return SecureStore.setItemAsync(key, value);
-  },
-  removeItem: (key: string): Promise<void> => {
-    return SecureStore.deleteItemAsync(key);
-  },
+  getItem: (key: string): Promise<string | null> => SecureStore.getItemAsync(key),
+  setItem: (key: string, value: string): Promise<void> => SecureStore.setItemAsync(key, value),
+  removeItem: (key: string): Promise<void> => SecureStore.deleteItemAsync(key),
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://czoaudsfbinpkwqsmhrd.supabase.co";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder";
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
   auth: {
     storage: Platform.OS !== "web" ? ExpoSecureStoreAdapter : undefined,
     autoRefreshToken: true,

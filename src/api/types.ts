@@ -13,6 +13,7 @@ export type Role =
   | "nurse"
   | "security";
 
+/** مطابقة لـ ROLE_LABELS في المنصة (src/lib/roles.ts) */
 export const ROLE_LABELS: Record<Role, string> = {
   platform_admin: "أدمن المنصة",
   org_owner: "مالك المجموعة",
@@ -31,30 +32,35 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export type Portal = "student" | "guardian" | "staff";
 
-export interface MembershipItem {
-  id: string;
-  org_id: string;
-  school_id: string | null;
-  school_name?: string;
+/** صفة واحدة يدخل بها الشخص: دور في مدرسة (أو في المؤسسة/المنصة). مطابقة لـ AppContext في المنصة. */
+export interface AppContext {
+  key: string;
   role: Role;
-  is_active: boolean;
-  branch_suspended?: boolean;
+  orgId: string | null;
+  orgName: string;
+  schoolId: string | null;
+  schoolName: string;
+  departmentId: string | null;
+  /** مسمى الصفة من قالب الصلاحيات إن وُجد (my_membership_titles) */
+  title?: string;
 }
 
+/** صلاحيات الشخص النهائية في المدرسة النشطة كما يحسبها الخادم (perm_my_school) */
 export type SchoolPerms = Record<string, boolean>;
 
-export interface ActiveContext {
-  orgId: string;
-  schoolId: string;
-  schoolName: string;
-  role: Role;
-  roleLabel: string;
-  permissions: SchoolPerms;
+export interface MembershipRow {
+  id: string;
+  role: string;
+  org_id: string | null;
+  school_id: string | null;
+  department_id: string | null;
+  organizations?: { name?: string | null } | null;
+  schools?: { name?: string | null } | null;
 }
 
-export interface UserProfile {
+export interface SchoolRow {
   id: string;
-  email?: string;
-  fullName?: string;
-  nationalId?: string;
+  name: string;
+  org_id: string | null;
+  organizations?: { name?: string | null } | null;
 }

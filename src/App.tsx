@@ -1,76 +1,128 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, BackHandler, I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, StyleSheet, I18nManager } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold, useFonts } from "@expo-google-fonts/cairo";
+import { Home, UserRound, type LucideIcon } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { LoginScreen } from "./screens/LoginScreen";
+import { ChooseContextScreen } from "./screens/ChooseContextScreen";
 import { HomeScreen } from "./screens/HomeScreen";
-import { ChooseRoleScreen } from "./screens/ChooseRoleScreen";
+import { AccountScreen } from "./screens/AccountScreen";
 import { RikazLogo } from "./components/RikazLogo";
-import { COLORS, SPACING } from "./theme/tokens";
+import { COLORS, FONT_SCALE, FONTS, SPACING } from "./theme/tokens";
 
-// فرض الاتجاه العربي RTL لواجهة التطبيق
-try {
-  if (!I18nManager.isRTL) {
+// الواجهة عربية بالكامل: اتجاه من اليمين لليسار (يسري بعد أول إعادة فتح للتطبيق إن لم يكن مفعّلًا)
+if (!I18nManager.isRTL) {
+  try {
     I18nManager.allowRTL(true);
     I18nManager.forceRTL(true);
+  } catch {
+    // لا شيء
   }
-} catch (e) {
-  console.warn("RTL force notice:", e);
 }
 
-const NavigationRoot: React.FC = () => {
-  const { session, loading, memberships, activeContext } = useAuth();
-  const [showRolePicker, setShowRolePicker] = useState(false);
+type Tab = "home" | "account";
 
-  // شاشة الانتظار أثناء استرجاع الجلسة المشفرة من expo-secure-store
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <RikazLogo size={56} />
-        <ActivityIndicator
-          size="large"
-          color={COLORS.primary}
-          style={{ marginTop: SPACING.lg }}
-        />
-      </View>
-    );
-  }
+const Splash: React.FC = () => (
+  <View style={styles.center}>
+    <RikazLogo size={64} />
+    <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: SPACING.xl }} />
+  </View>
+);
 
-  // إذا لم يكن المستخدم مسجلاً
-  if (!session) {
-    return <LoginScreen />;
-  }
+const TabBar: React.FC<{ tab: Tab; onChange: (t: Tab) => void }> = ({ tab, onChange }) => {
+  const insets = useSafeAreaInsets();
+  const items: { key: Tab; label: string; icon: LucideIcon }[] = [
+    { key: "home", label: "الرئيسية", icon: Home },
+    { key: "account", label: "حسابي", icon: UserRound },
+  ];
+  return (
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]} accessibilityRole="tablist">
+      {items.map((it) => {
+        const on = it.key === tab;
+        const Icon = it.icon;
+        return (
+          <Pressable key={it.key} onPress={() => onChange(it.key)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={it.label} style={styles.tabItem}>
+            <View style={[styles.tabIndicator, on && styles.tabIndicatorOn]}>
+              <Icon size={22} color={on ? COLORS.primary : COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
+            </View>
+            <Text maxFontSizeMultiplier={FONT_SCALE.control} style={[styles.tabLabel, { color: on ? COLORS.primary : COLORS.mutedForeground, fontFamily: on ? FONTS.bold : FONTS.medium }]}>
+              {it.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
 
-  // إذا طلب المستخدم شاشة اختيار الدور، أو كان لديه أكثر من دور ولم يحدد سياقاً بعد
-  if (showRolePicker || (memberships.length > 1 && !activeContext)) {
-    return (
-      <ChooseRoleScreen
-        onSelected={() => setShowRolePicker(false)}
-      />
-    );
-  }
+const Root: React.FC = () => {
+  const { status, mustChoose, active, contextsLoading, contextsError, contexts } = useAuth();
+  const [tab, setTab] = useState<Tab>("home");
+  const [picker, setPicker] = useState(false);
+
+  // زر الرجوع في أندرويد يغلق شاشة التبديل أولًا
+  useEffect(() => {
+    if (!picker) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setPicker(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [picker]);
+
+  // العودة للرئيسية وإغلاق التبديل عند الخروج
+  useEffect(() => {
+    if (status !== "signedIn") {
+      setTab("home");
+      setPicker(false);
+    }
+  }, [status]);
+
+  if (status === "loading") return <Splash />;
+  if (status === "signedOut") return <LoginScreen />;
+  if (contextsLoading && contexts.length === 0) return <Splash />;
+  if (mustChoose || !active || contextsError) return <ChooseContextScreen />;
+  if (picker) return <ChooseContextScreen onClose={() => setPicker(false)} />;
 
   return (
-    <HomeScreen
-      onOpenContextPicker={() => setShowRolePicker(true)}
-    />
+    <View style={styles.flex}>
+      <View style={styles.flex}>{tab === "home" ? <HomeScreen onSwitch={() => setPicker(true)} /> : <AccountScreen onSwitch={() => setPicker(true)} />}</View>
+      <TabBar tab={tab} onChange={setTab} />
+    </View>
   );
 };
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold });
   return (
-    <AuthProvider>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <NavigationRoot />
-    </AuthProvider>
+    <SafeAreaProvider>
+      {fontsLoaded || fontError ? (
+        <AuthProvider>
+          <Root />
+        </AuthProvider>
+      ) : (
+        <View style={styles.center}>
+          <ActivityIndicator color={COLORS.primary} />
+        </View>
+      )}
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
+  flex: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.background },
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: COLORS.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+    paddingTop: SPACING.sm,
   },
+  tabItem: { flex: 1, alignItems: "center", gap: 2, minHeight: 56 },
+  tabIndicator: { width: 64, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  tabIndicatorOn: { backgroundColor: COLORS.primaryTint },
+  tabLabel: { fontSize: 12, lineHeight: 18 },
 });

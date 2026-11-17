@@ -1,60 +1,46 @@
 /**
- * نظام تصميم ركaz (Rikaz Design Tokens)
- * مستخرج مباشرة من الكود المصدري للمنصة (src/styles.css و OKLCH palette)
- * متوافق بالكامل مع Apple Human Interface Guidelines و Material Design 3 و WCAG 2.2 AA
+ * نظام تصميم ركاز للجوال.
+ * الألوان منقولة من src/styles.css في منصة ركاز (قيم oklch محوّلة إلى sRGB)،
+ * والخط Cairo هو خط المنصة نفسه. المقاسات تتبع شبكة 4 نقاط،
+ * وأهداف اللمس 48 نقطة على الأقل (Material: 48dp، Apple: 44pt).
  */
 
 export const COLORS = {
-  // الألوان الأساسية للمنصة (Deep Teal + Warm Sand)
-  primary: "#006560",            // ركاز الكحلي المخضر الداكن (oklch 0.45 0.09 190)
-  primaryDark: "#004D49",
-  primaryLight: "#E6F0EF",
-  primaryForeground: "#FBF8F1",  // أبيض دافئ عالي التباين (تباين 6.93:1)
+  primary: "#006560", // --primary oklch(0.45 0.09 190)
+  primaryPressed: "#004F4C",
+  primaryTint: "#E3F1EF",
+  primaryForeground: "#FBF8F1", // --primary-foreground
 
-  secondary: "#F6EDE0",          // رملي دافئ مهدئ (oklch 0.95 0.02 80)
-  secondaryDark: "#E2D1BE",
+  secondary: "#F6EDE0", // --secondary
   secondaryForeground: "#123432",
 
-  accent: "#EBB25F",             // ذهبي رملي مميز (oklch 0.8 0.12 75)
+  accent: "#EBB25F", // --accent oklch(0.8 0.12 75)
   accentForeground: "#301D0D",
 
-  // ألوان الخلفيات والأسطح
-  background: "#FEFDFB",         // خلفية التطبيق العامة المريحة للعين
-  card: "#FFFFFF",               // خلفية البطاقات والحاويات
-  cardElevated: "#FFFFFF",
-  foreground: "#0B2425",         // لون النصوص الأساسي الداكن (تباين 15.97:1)
+  background: "#FEFDFB", // --background
+  card: "#FFFFFF",
+  foreground: "#0B2425", // --foreground
+  muted: "#F6F3ED", // --muted
+  mutedForeground: "#566768", // --muted-foreground
+  border: "#E7E4DF", // --border
+  inputBg: "#FBFAF7",
 
-  // ألوان العناصر المحايدة
-  muted: "#F6F3ED",
-  mutedForeground: "#566768",    // نصوص توضيحية مطابقة للتباين 5.84:1
-  border: "#E7E4DF",
-  borderLight: "#F0EDE8",
-  input: "#E7E4DF",
-  inputBg: "#FAF8F5",
+  destructive: "#D73431", // --destructive
+  destructiveTint: "#FCEDEC",
+  success: "#258651", // --success
+  successTint: "#E8F5EE",
+  warning: "#F2AF48", // --warning
+  warningForeground: "#43260A",
+  warningTint: "#FDF4E4",
 
-  // حالات النظام والإشعارات
-  destructive: "#D73431",        // أحمر التنبيه والأخطاء (تباين 4.75:1)
-  destructiveLight: "#FDF2F2",
-  destructiveForeground: "#FFFFFF",
-
-  success: "#258651",            // أخضر النجاح والتأكيد
-  successLight: "#F0FDF4",
-  successForeground: "#FFFFFF",
-
-  warning: "#D97706",            // برتقالي التحذير
-  warningLight: "#FFFBEB",
-  warningForeground: "#FFFFFF",
-
-  // ألوان أدوار المنصة (Role Colors)
-  roleGuardian: "#0284C7",
-  roleGuardianBg: "#F0F9FF",
-  roleStudent: "#16A34A",
-  roleStudentBg: "#F0FDF4",
-  roleStaff: "#006560",
-  roleStaffBg: "#E6F0EF",
+  overlay: "rgba(11, 36, 37, 0.45)",
+  onPrimaryMuted: "rgba(251, 248, 241, 0.78)",
+  onPrimarySubtle: "rgba(251, 248, 241, 0.14)",
 };
 
+/** شبكة 4 نقاط */
 export const SPACING = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -62,61 +48,64 @@ export const SPACING = {
   xl: 20,
   xxl: 24,
   xxxl: 32,
+  huge: 40,
 };
 
+/** --radius في المنصة 0.75rem = 12 */
 export const RADIUS = {
   sm: 8,
-  md: 12,                        // مطابقة نصف قطر المنصة الأساسي (0.75rem = 12px)
+  md: 12,
   lg: 16,
-  xl: 22,
+  xl: 24,
   full: 999,
 };
 
-export const TYPOGRAPHY = {
-  fontFamily: "System",          // خط النظام مع دعم Cairo عند تحميله
-  sizes: {
-    xs: 11,
-    sm: 13,
-    base: 15,
-    md: 16,
-    lg: 18,
-    xl: 22,
-    xxl: 26,
-    hero: 32,
-  },
-  lineHeights: {
-    tight: 1.25,
-    normal: 1.45,
-    relaxed: 1.6,
-  },
+/** خط Cairo بأوزان منفصلة، لأن أندرويد لا يختار الوزن من fontWeight للخطوط المخصصة */
+export const FONTS = {
+  regular: "Cairo_400Regular",
+  medium: "Cairo_500Medium",
+  semibold: "Cairo_600SemiBold",
+  bold: "Cairo_700Bold",
+  extrabold: "Cairo_800ExtraBold",
+} as const;
+
+export type FontWeightName = keyof typeof FONTS;
+
+/** سلّم الخطوط: الحجم وارتفاع السطر (Cairo يحتاج ارتفاع سطر واسعًا للحروف العربية) */
+export const TYPE = {
+  display: { fontSize: 28, lineHeight: 42, weight: "extrabold" as FontWeightName },
+  title: { fontSize: 22, lineHeight: 34, weight: "bold" as FontWeightName },
+  headline: { fontSize: 18, lineHeight: 28, weight: "bold" as FontWeightName },
+  body: { fontSize: 16, lineHeight: 26, weight: "regular" as FontWeightName },
+  bodyStrong: { fontSize: 16, lineHeight: 26, weight: "semibold" as FontWeightName },
+  label: { fontSize: 14, lineHeight: 22, weight: "semibold" as FontWeightName },
+  caption: { fontSize: 13, lineHeight: 20, weight: "regular" as FontWeightName },
+  micro: { fontSize: 12, lineHeight: 18, weight: "medium" as FontWeightName },
 };
 
-// مقاييس الوصول واللمس الرسمية (Apple HIG: 44pt / Material 3: 48dp)
-export const ACCESSIBILITY = {
-  minTouchTarget: 48,            // الحجم الأدنى لعناصر اللمس للأزرار والحقول
-  standardHitSlop: { top: 8, bottom: 8, left: 8, right: 8 },
+export type TypeVariant = keyof typeof TYPE;
+
+/** أقصى تكبير للنص حتى لا تنكسر العناوين والأزرار مع إعدادات الخط الكبير */
+export const FONT_SCALE = { body: 1.6, heading: 1.35, control: 1.3 };
+
+export const TOUCH = {
+  min: 48,
+  hitSlop: { top: 8, bottom: 8, left: 8, right: 8 },
 };
 
 export const SHADOWS = {
-  sm: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  card: {
+    shadowColor: "#0B2425",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  md: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  lg: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+  raised: {
+    shadowColor: "#0B2425",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
     elevation: 6,
   },
 };

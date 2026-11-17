@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1E3A8A"
+      "backgroundColor": "#006560"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,13 +18,14 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1E3A8A"
+        "backgroundColor": "#FFFFFF"
       },
-      "package": "com.rikazschool.app"
+      "package": "com.rikazschool.app",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "extra": {
-      "supabaseUrl": "https://czoaudsfbinpkwqsmhrd.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder"
+      "supportsRTL": true,
+      "forcesRTL": true
     }
   }
 }
