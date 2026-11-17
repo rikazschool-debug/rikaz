@@ -2,31 +2,23 @@ import React, { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { Building2, ExternalLink, GraduationCap, HeartHandshake, KeyRound, MessageCircle, ShieldCheck } from "lucide-react-native";
+import { ExternalLink, MessageCircle, ShieldCheck } from "lucide-react-native";
 import { Brand } from "../components/Brand";
-import { AppText, Button, Card, Divider, LinkButton, Notice, Segmented, SegmentOption, TextField } from "../components/ui";
+import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT } from "../components/AccountEntrySelector";
+import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
 import { COLORS, RADIUS, SPACING } from "../theme/tokens";
 import { CONFIG } from "../config";
 import { digitsOnly, RESEND_SECONDS } from "../lib/identity";
-import { loginErrorMessage, platformOwnerSignIn, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
-
-type Entry = "student" | "guardian" | "staff";
-
-const ENTRIES: (SegmentOption<Entry> & { title: string; desc: string })[] = [
-  { key: "student", label: "الطالب", icon: GraduationCap, title: "الدخول إلى حساب الطالب", desc: "برقم الهوية أو الإقامة ورقم الطالب في C‑Smart" },
-  { key: "guardian", label: "ولي الأمر", icon: HeartHandshake, title: "الدخول إلى حساب ولي الأمر", desc: "برقم الهوية أو الإقامة ورمز يصل إلى جوالك المسجل في المدرسة" },
-  { key: "staff", label: "الإدارة والموظفون", icon: Building2, title: "الدخول إلى حساب الإدارة والموظفين", desc: "برقم الهوية أو الإقامة ورمز يصل إلى جوالك المسجل" },
-];
+import { loginErrorMessage, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
 
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const [entry, setEntry] = useState<Entry>("student");
-  const [ownerOpen, setOwnerOpen] = useState(false);
-  const meta = ENTRIES.find((e) => e.key === entry)!;
+  const [entry, setEntry] = useState<AccountEntry>("student");
+  const meta = ENTRY_CONTENT[entry];
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ScrollView
         style={styles.screen}
         contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.xxxl }}
@@ -34,22 +26,19 @@ export const LoginScreen: React.FC = () => {
         keyboardDismissMode="interactive"
       >
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-          <Brand light size={44} />
-          <AppText variant="display" color={COLORS.primaryForeground} style={styles.heroTitle}>
-            مرحبًا بك في ركاز
-          </AppText>
-          <AppText variant="body" color={COLORS.onPrimaryMuted}>
-            اختر نوع حسابك للمتابعة
+          <Brand size={64} />
+          <AppText variant="title" color={COLORS.primary} style={styles.heroTitle}>
+            منظومة الإدارة التعليمية الذكية
           </AppText>
         </View>
 
         <View style={styles.sheet}>
+          <AccountEntrySelector value={entry} onChange={setEntry} />
           <Card raised style={styles.formCard}>
-            <Segmented label="نوع الحساب" options={ENTRIES} value={entry} onChange={setEntry} />
             <View style={styles.descRow}>
               <View style={styles.dot} />
               <AppText variant="caption" color={COLORS.mutedForeground} style={styles.flex}>
-                {meta.desc}
+                {meta.description}
               </AppText>
             </View>
             <Divider />
@@ -62,13 +51,6 @@ export const LoginScreen: React.FC = () => {
             )}
           </Card>
 
-          <View style={styles.ownerBox}>
-            {ownerOpen ? (
-              <PlatformOwnerForm onClose={() => setOwnerOpen(false)} />
-            ) : (
-              <LinkButton title="دخول مالك المنصة" color={COLORS.mutedForeground} onPress={() => setOwnerOpen(true)} />
-            )}
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -257,79 +239,18 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff"; title: string }> = ({ 
   );
 };
 
-const PlatformOwnerForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const pwRef = useRef<TextInput>(null);
-
-  async function login() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await platformOwnerSignIn(email, pw);
-    } catch (e) {
-      setMsg(loginErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card style={styles.gap}>
-      <View style={styles.ownerHead}>
-        <KeyRound size={20} color={COLORS.primary} />
-        <AppText variant="bodyStrong" style={styles.flex}>
-          دخول مالك المنصة
-        </AppText>
-      </View>
-      <TextField
-        label="البريد الإلكتروني"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="email"
-        textContentType="username"
-        ltr
-        returnKeyType="next"
-        onSubmitEditing={() => pwRef.current?.focus()}
-      />
-      <TextField
-        ref={pwRef}
-        label="كلمة المرور"
-        value={pw}
-        onChangeText={setPw}
-        secureTextEntry
-        autoCapitalize="none"
-        autoComplete="password"
-        textContentType="password"
-        ltr
-        returnKeyType="go"
-        onSubmitEditing={() => void login()}
-      />
-      {msg ? <Notice tone="error">{msg}</Notice> : null}
-      <Button title="دخول" onPress={login} loading={busy} disabled={!email || pw.length < 8} />
-      <LinkButton title="إلغاء" color={COLORS.mutedForeground} onPress={onClose} />
-    </Card>
-  );
-};
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   hero: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.background,
     paddingHorizontal: SPACING.xxl,
-    paddingBottom: SPACING.huge + SPACING.xxl,
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
+    paddingBottom: SPACING.xxl,
+    alignItems: "center",
     gap: SPACING.xs,
   },
-  heroTitle: { marginTop: SPACING.xxl },
-  sheet: { paddingHorizontal: SPACING.lg, marginTop: -SPACING.huge, gap: SPACING.lg },
+  heroTitle: { marginTop: SPACING.lg, textAlign: "center" },
+  sheet: { paddingHorizontal: SPACING.lg, gap: SPACING.lg, width: "100%", maxWidth: 560, alignSelf: "center" },
   formCard: { gap: SPACING.lg, padding: SPACING.lg },
   descRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 7 },
@@ -338,6 +259,4 @@ const styles = StyleSheet.create({
   otpIcon: { width: 48, height: 48, borderRadius: RADIUS.md, backgroundColor: COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
   otpActions: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap" },
   ltrInline: { writingDirection: "ltr" },
-  ownerBox: { alignItems: "stretch" },
-  ownerHead: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
 });

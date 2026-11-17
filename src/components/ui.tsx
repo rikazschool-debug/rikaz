@@ -13,7 +13,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { AlertCircle, CheckCircle2, Info, type LucideIcon } from "lucide-react-native";
-import { COLORS, FONT_SCALE, FONTS, FontWeightName, RADIUS, SHADOWS, SPACING, TOUCH, TYPE, TypeVariant } from "../theme/tokens";
+import { COLORS, FONTS, FontWeightName, RADIUS, SHADOWS, SPACING, TOUCH, TYPE, TypeVariant } from "../theme/tokens";
 
 /* ------------------------------------------------------------------ النص */
 
@@ -26,10 +26,8 @@ type AppTextProps = TextProps & {
 
 export const AppText: React.FC<AppTextProps> = ({ variant = "body", weight, color = COLORS.foreground, align, style, ...rest }) => {
   const t = TYPE[variant];
-  const heading = variant === "display" || variant === "title" || variant === "headline";
   return (
     <Text
-      maxFontSizeMultiplier={heading ? FONT_SCALE.heading : FONT_SCALE.body}
       style={[{ fontFamily: FONTS[weight ?? t.weight], fontSize: t.fontSize, lineHeight: t.lineHeight, color, textAlign: align, writingDirection: "rtl" }, style]}
       {...rest}
     />
@@ -83,7 +81,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "prima
       ) : (
         <View style={styles.btnInner}>
           {Icon ? <Icon size={20} color={v.fg} strokeWidth={2} /> : null}
-          <Text maxFontSizeMultiplier={FONT_SCALE.control} style={[styles.btnText, { color: v.fg }]} numberOfLines={2}>
+          <Text style={[styles.btnText, { color: v.fg }]}>
             {title}
           </Text>
         </View>
@@ -117,7 +115,6 @@ export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error
         accessibilityLabel={label}
         accessibilityHint={hint}
         placeholderTextColor="#8A9697"
-        maxFontSizeMultiplier={FONT_SCALE.control}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);
@@ -212,8 +209,6 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
           >
             <Icon size={22} color={on ? COLORS.primary : COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
             <Text
-              maxFontSizeMultiplier={FONT_SCALE.control}
-              numberOfLines={2}
               style={[styles.segmentText, { color: on ? COLORS.primary : COLORS.mutedForeground, fontFamily: on ? FONTS.bold : FONTS.medium }]}
             >
               {o.label}
@@ -272,7 +267,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: COLORS.foreground,
   },
-  inputLarge: { minHeight: 60, fontSize: 26, letterSpacing: 10, fontFamily: FONTS.bold, textAlign: "center" },
+  inputLarge: { minHeight: 60, fontSize: 26, letterSpacing: 0, fontFamily: FONTS.bold, textAlign: "center" },
   inputDisabled: { backgroundColor: COLORS.muted, color: COLORS.mutedForeground },
   ltr: { writingDirection: "ltr" },
   rtl: { writingDirection: "rtl" },
@@ -309,7 +304,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xs,
     gap: 2,
   },
-  segmentOn: { backgroundColor: COLORS.card, ...SHADOWS.card },
+  segmentOn: { backgroundColor: COLORS.primaryTint, ...SHADOWS.card },
   segmentText: { fontSize: 13, lineHeight: 20, textAlign: "center" },
   iconTile: { borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center" },
   link: { minHeight: TOUCH.min, justifyContent: "center", paddingHorizontal: SPACING.sm },

@@ -1,13 +1,13 @@
 import React from "react";
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { ArrowLeftRight, Building2, ExternalLink, LayoutGrid } from "lucide-react-native";
+import { ArrowLeftRight, Building2 } from "lucide-react-native";
 import { AppText, Button, Card, IconTile } from "../components/ui";
 import { RikazLogo } from "../components/RikazLogo";
 import { useAuth } from "../hooks/useAuth";
 import { ACCOUNT_KIND_LABEL, accountKind, contextLabel } from "../lib/contexts";
-import { CONFIG } from "../config";
+import { RoleSections } from "../components/RoleSections";
 import { COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 
 function greeting(): string {
@@ -15,10 +15,10 @@ function greeting(): string {
   return h < 12 ? "صباح الخير" : "مساء الخير";
 }
 
-/** الرئيسية الأولية: الصفة النشطة والتبديل، دون روابط لأقسام لم تُنفّذ في التطبيق */
+/** الرئيسية: الصفة النشطة والتبديل، وأقسام الحساب حسب دوره وصلاحياته */
 export const HomeScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
   const insets = useSafeAreaInsets();
-  const { active, fullName, contexts, switching, contextsLoading, reloadContexts } = useAuth();
+  const { active, fullName, contexts, switching, contextsLoading, reloadContexts, perms } = useAuth();
   const firstName = fullName?.trim().split(/\s+/)[0];
   const kind = active ? accountKind(active.role) : "staff";
   const canSwitch = contexts.length > 1;
@@ -85,24 +85,14 @@ export const HomeScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => 
           )}
         </Card>
 
-        <Card style={styles.sectionCard}>
-          <View style={styles.ctxRow}>
-            <IconTile icon={LayoutGrid} tone="accent" size={48} />
-            <View style={styles.flex}>
-              <AppText variant="bodyStrong">أقسام المدرسة</AppText>
-              <AppText variant="caption" color={COLORS.mutedForeground}>
-                تتوفر أقسام المدرسة حاليًا في منصة ركاز على الويب، وستُضاف إلى التطبيق تباعًا.
-              </AppText>
-            </View>
-          </View>
-          <Button
-            title="فتح منصة ركاز"
-            variant="ghost"
-            icon={ExternalLink}
-            accessibilityHint="يفتح المنصة في المتصفح، وقد يُطلب منك الدخول هناك"
-            onPress={() => void Linking.openURL(`${CONFIG.platformUrl}/app`)}
-          />
-        </Card>
+        {active ? (
+          <Card style={styles.sectionCard}>
+            <AppText variant="headline" accessibilityRole="header">
+              أقسامك
+            </AppText>
+            <RoleSections role={active.role} perms={perms} loading={switching} />
+          </Card>
+        ) : null}
 
       </View>
     </ScrollView>

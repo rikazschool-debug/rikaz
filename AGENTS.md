@@ -4,3 +4,5 @@
 - Read authentication, database, and web origins separately; mobile uses only the VPS public key, because cloud sessions and VPS sessions are not interchangeable.
 - Keep identity proof and account issuance in existing server-side login helpers; expose bounded JSON handlers instead of calling internal server-function URLs.
 - Treat VPS overlays as deployment source rather than Expo modules; exclude them from mobile type resolution and exercise their browser-safe HTTP boundary with Jest's TypeScript transformer.
+- Keep account-entry presentation in a shared native selector and derive selectable contexts from actual server memberships; choosing an entry is not a permission grant.
+- Home sections per role live in `src/lib/sections.ts`, mirroring the platform's NAV_BY_ROLE and permission gating; keep it in sync with the platform instead of inventing role menus.
