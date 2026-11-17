@@ -34,7 +34,7 @@ async function callPlatform(path: string, body: Record<string, string>): Promise
   if (!CONFIG.idLoginEnabled) throw new LoginError(MSG.unavailable);
   let res: Response;
   try {
-    res = await fetch(`${CONFIG.platformUrl}/api/public/auth/${path}`, {
+    res = await fetch(`${CONFIG.authUrl}/api/public/auth/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
@@ -42,7 +42,8 @@ async function callPlatform(path: string, body: Record<string, string>): Promise
   } catch {
     throw new LoginError(MSG.network);
   }
-  if (res.status === 404) throw new LoginError(MSG.unavailable);
+  if (res.status === 404 || res.status === 503) throw new LoginError(MSG.unavailable);
+  if (res.status === 429) throw new LoginError(MSG.rateLimited);
   let json: IdResponse;
   try {
     json = (await res.json()) as IdResponse;
