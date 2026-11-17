@@ -3,387 +3,660 @@ import {
   View,
   Text,
   ScrollView,
+  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Modal,
   StyleSheet,
-  SafeAreaView,
-  Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { BrandHeader } from "../components/BrandHeader";
-import { Button, Input, AlertBanner, COLORS } from "../components/UiComponents";
-import { Portal } from "../api/types";
-import { studentSignIn, requestIdCode, verifyIdCode, passwordSignIn } from "../api/auth";
+import {
+  Button,
+  Input,
+  SegmentedTabs,
+  Card,
+  NoticeBanner,
+  TabOption,
+} from "../components/UiComponents";
+import {
+  COLORS,
+  SPACING,
+  RADIUS,
+  TYPOGRAPHY,
+  ACCESSIBILITY,
+  SHADOWS,
+} from "../theme/tokens";
+import {
+  studentSignIn,
+  requestIdCode,
+  verifyIdCode,
+  passwordSignIn,
+} from "../api/auth";
+import { useAuth } from "../hooks/useAuth";
+import {
+  GraduationCap,
+  HeartHandshake,
+  Building2,
+  Sparkles,
+  ShieldCheck,
+  KeyRound,
+  MessageSquare,
+} from "lucide-react-native";
+
+type UserCategory = "student" | "guardian" | "staff";
+
+interface CategoryMeta {
+  key: UserCategory;
+  tab: string;
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+}
 
 export const LoginScreen: React.FC = () => {
-  const [portal, setPortal] = useState<Portal>("student");
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { setSessionManually } = useAuth();
 
-  // Student inputs
+  // الفئة المختارة: الطالب، ولي الأمر، الإدارة والموظفون
+  const [category, setCategory] = useState<UserCategory>("student");
+
+  // حقول الطالب
   const [studentNid, setStudentNid] = useState("");
   const [studentCsmart, setStudentCsmart] = useState("");
 
-  // OTP inputs (Guardian & Staff)
-  const [nid, setNid] = useState("");
-  const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState<{ id: string; masked: string } | null>(null);
-  const [countdown, setCountdown] = useState(0);
+  // حقول ولي الأمر والموظفين عبر OTP
+  const [idNumber, setIdNumber] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
+  const [timer, setTimer] = useState(0);
 
-  // Staff Password inputs
-  const [staffAuthMode, setStaffAuthMode] = useState<"otp" | "password">("otp");
+  // وضع دخول الموظفين: "otp" أو "password"
+  const [staffMode, setStaffMode] = useState<"otp" | "password">("password");
   const [staffIdentifier, setStaffIdentifier] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
 
-  // Timer countdown for OTP resend
+  // حالة مالك المنصة
+  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+
+  // حالات التحميل والخطأ
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoNotice, setInfoNotice] = useState<string | null>(null);
+
+  // مؤقت إعادة إرسال OTP
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => setTimer((t) => t - 1), 1000);
     }
-    return () => clearTimeout(timer);
-  }, [countdown]);
+    return () => clearInterval(interval);
+  }, [timer]);
 
-  const resetFormState = () => {
-    setErrorMsg(null);
-    setChallenge(null);
-    setCode("");
-    setCountdown(0);
-  };
+  // مسح الأخطاء عند تبديل الفئة
+  function handleCategoryChange(cat: UserCategory) {
+    setCategory(cat);
+    setErrorMessage(null);
+    setInfoNotice(null);
+    setChallengeId(null);
+    setOtpCode("");
+  }
 
-  // 1. Student Submit
-  async function handleStudentSubmit() {
-    Keyboard.dismiss();
-    setErrorMsg(null);
-    if (!studentNid || !studentCsmart) {
-      setErrorMsg("يرجى إدخال رقم الهوية ورقم C-Smart");
+  /* -------------------------------------------------------------------------- */
+  /*                             تدفق دخول الطالب                                */
+  /* -------------------------------------------------------------------------- */
+  async function handleStudentLogin() {
+    setErrorMessage(null);
+    setInfoNotice(null);
+
+    const cleanNid = studentNid.replace(/\D/g, "");
+    const cleanCsmart = studentCsmart.trim();
+
+    if (cleanNid.length !== 10) {
+      setErrorMessage("أدخل رقم هوية أو إقامة صحيحًا مكونًا من 10 أرقام.");
       return;
     }
+    if (!cleanCsmart) {
+      setErrorMessage("أدخل رقم الطالب الداخلي في C‑Smart.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await studentSignIn(studentNid, studentCsmart);
+      const data = await studentSignIn(cleanNid, cleanCsmart);
+      if (data?.session) {
+        await setSessionManually(data.session);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || "فشل تسجيل الدخول كطالب");
+      // توضيح حالة الخادم بشفافية إذا لم تكن مسارات Edge Function مرفوعة بعد
+      if (err?.message?.includes("Network") || err?.message?.includes("404")) {
+        setErrorMessage(
+          "مسار التحقق الآلي للطلاب بانتظار اكتمال ربط خادم API على بيئة الاختبار. للدخول المباشر حالياً، استخدم بوابة الموظفين بكلمة المرور."
+        );
+      } else {
+        setErrorMessage(err?.message || "تعذر إتمام الدخول بالبيانات المدخلة.");
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  // 2. Request OTP Code
-  async function handleRequestCode() {
-    Keyboard.dismiss();
-    setErrorMsg(null);
-    if (!nid || nid.length !== 10) {
-      setErrorMsg("يرجى إدخال رقم هوية أو إقامة صحيح من 10 أرقام");
+  /* -------------------------------------------------------------------------- */
+  /*                           تدفق رمز التحقق (OTP)                             */
+  /* -------------------------------------------------------------------------- */
+  async function handleRequestOtp(portal: "guardian" | "staff") {
+    setErrorMessage(null);
+    setInfoNotice(null);
+
+    const cleanNid = idNumber.replace(/\D/g, "");
+    if (!/^[12]\d{9}$/.test(cleanNid)) {
+      setErrorMessage("أدخل رقم هوية أو إقامة صحيحًا يبدأ بـ 1 أو 2.");
       return;
     }
+
     setLoading(true);
     try {
-      const res = await requestIdCode(nid, portal === "guardian" ? "guardian" : "staff");
-      setChallenge({ id: res.challenge, masked: res.masked });
-      setCountdown(60); // 60s cooldown according to server rules
+      const res = await requestIdCode(cleanNid, portal);
+      setChallengeId(res.challenge);
+      setMaskedPhone(res.masked || "جوالك المسجل");
+      setTimer(60);
+      setInfoNotice(`تم إرسال رمز التحقق في واتساب إلى ${res.masked || "جوالك"}`);
     } catch (err: any) {
-      setErrorMsg(err.message || "تعذر إرسال رمز التحقق");
+      if (err?.message?.includes("Network") || err?.message?.includes("404")) {
+        setErrorMessage(
+          "خدمة إرسال OTP عبر واتساب تتطلب نشر مسارات API الخادمية المخصصة. يمكنك تسجيل الدخول المباشر باسم المستخدم وكلمة المرور عبر بوابة الموظفين."
+        );
+      } else {
+        setErrorMessage(err?.message || "تعذر إرسال الرمز الآن.");
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  // 3. Verify OTP Code
-  async function handleVerifyCode() {
-    Keyboard.dismiss();
-    setErrorMsg(null);
-    if (!challenge || code.length !== 6) {
-      setErrorMsg("يرجى إدخال رمز التحقق المكون من 6 أرقام");
+  async function handleVerifyOtp(portal: "guardian" | "staff") {
+    if (!challengeId) return;
+    setErrorMessage(null);
+
+    const cleanCode = otpCode.replace(/\D/g, "");
+    if (cleanCode.length !== 6) {
+      setErrorMessage("أدخل رمز التحقق المكون من 6 أرقام.");
       return;
     }
+
     setLoading(true);
     try {
-      await verifyIdCode(challenge.id, code, portal === "guardian" ? "guardian" : "staff");
+      const data = await verifyIdCode(challengeId, cleanCode, portal);
+      if (data?.session) {
+        await setSessionManually(data.session);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || "الرمز غير صحيح أو منتهي الصلاحية");
+      setErrorMessage(err?.message || "رمز التحقق غير صحيح أو انتهت صلاحيته.");
     } finally {
       setLoading(false);
     }
   }
 
-  // 4. Staff Password Submit
-  async function handlePasswordSubmit() {
-    Keyboard.dismiss();
-    setErrorMsg(null);
-    if (!staffIdentifier || !staffPassword) {
-      setErrorMsg("يرجى إدخال اسم المستخدم وكلمة المرور");
+  /* -------------------------------------------------------------------------- */
+  /*                      تدفق الموظفين بكلمة المرور (المباشر)                    */
+  /* -------------------------------------------------------------------------- */
+  async function handleStaffPasswordLogin() {
+    setErrorMessage(null);
+    setInfoNotice(null);
+
+    const ident = staffIdentifier.trim();
+    if (!ident) {
+      setErrorMessage("أدخل اسم المستخدم أو البريد أو رقم الهوية.");
       return;
     }
+    if (staffPassword.length < 6) {
+      setErrorMessage("أدخل كلمة المرور بشكل صحيح.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await passwordSignIn(staffIdentifier, staffPassword);
+      const data = await passwordSignIn(ident, staffPassword);
+      if (data?.session) {
+        await setSessionManually(data.session);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || "بيانات الدخول غير صحيحة");
+      setErrorMessage(
+        err?.message || "بيانات الدخول غير صحيحة. تحقق من اسم المستخدم وكلمة المرور."
+      );
     } finally {
       setLoading(false);
     }
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                           تدفق مالك المنصة                                 */
+  /* -------------------------------------------------------------------------- */
+  async function handlePlatformOwnerLogin() {
+    setErrorMessage(null);
+    const email = ownerEmail.trim().toLowerCase();
+    if (!email || !ownerPassword) {
+      setErrorMessage("أدخل بريد وكلمة مرور مالك المنصة.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await passwordSignIn(email, ownerPassword);
+      if (data?.session) {
+        setOwnerModalOpen(false);
+        await setSessionManually(data.session);
+      }
+    } catch (err: any) {
+      setErrorMessage("تعذر التحقق من حساب مالك المنصة.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const categoryOptions: TabOption<UserCategory>[] = [
+    {
+      key: "student",
+      label: "الطالب",
+      icon: <GraduationCap size={18} color={category === "student" ? COLORS.primary : COLORS.mutedForeground} />,
+    },
+    {
+      key: "guardian",
+      label: "ولي الأمر",
+      icon: <HeartHandshake size={18} color={category === "guardian" ? COLORS.primary : COLORS.mutedForeground} />,
+    },
+    {
+      key: "staff",
+      label: "الموظفون",
+      icon: <Building2 size={18} color={category === "staff" ? COLORS.primary : COLORS.mutedForeground} />,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <BrandHeader />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          {/* Header */}
+          <View style={styles.headerSection}>
+            <BrandHeader size="lg" />
+            <Text style={styles.welcomeTitle}>مرحبًا بك في ركاز</Text>
+            <Text style={styles.welcomeSubtitle}>
+              منصة عربية واحدة تجمع المدرسة وفروعها ومعلميها وطلابها وأولياء أمورهم.
+            </Text>
+          </View>
 
-            {/* Portal Tab Selector */}
-            <View style={styles.tabContainer}>
-              <TouchableOpacity
-                style={[styles.tab, portal === "student" && styles.tabActive]}
-                onPress={() => { setPortal("student"); resetFormState(); }}
-              >
-                <Text style={[styles.tabText, portal === "student" && styles.tabTextActive]}>
-                  الطالب
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, portal === "guardian" && styles.tabActive]}
-                onPress={() => { setPortal("guardian"); resetFormState(); }}
-              >
-                <Text style={[styles.tabText, portal === "guardian" && styles.tabTextActive]}>
-                  ولي الأمر
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, portal === "staff" && styles.tabActive]}
-                onPress={() => { setPortal("staff"); resetFormState(); }}
-              >
-                <Text style={[styles.tabText, portal === "staff" && styles.tabTextActive]}>
-                  الإدارة والموظفون
-                </Text>
-              </TouchableOpacity>
+          {/* Main Card */}
+          <Card style={styles.loginCard} variant="elevated">
+            {/* Category Selector */}
+            <SegmentedTabs
+              options={categoryOptions}
+              activeKey={category}
+              onSelect={handleCategoryChange}
+            />
+
+            {/* Banner description matching platform */}
+            <View style={styles.descBanner}>
+              <Sparkles size={16} color={COLORS.primary} style={{ marginTop: 2 }} />
+              <Text style={styles.descBannerText}>
+                {category === "student" &&
+                  "برقم الهوية أو الإقامة ورقم الطالب في C‑Smart (دون كلمة مرور أو رمز)."}
+                {category === "guardian" &&
+                  "برقم الهوية أو الإقامة ورمز تحقق يصل إلى جوالك المسجل في المدرسة."}
+                {category === "staff" &&
+                  "الدخول بحساب الإدارة والموظفين المعتمد عبر الهوية وOTP أو كلمة المرور."}
+              </Text>
             </View>
 
-            {errorMsg && <AlertBanner message={errorMsg} type="error" />}
+            {/* Error & Info notices */}
+            {errorMessage && (
+              <NoticeBanner message={errorMessage} variant="error" />
+            )}
+            {infoNotice && (
+              <NoticeBanner message={infoNotice} variant="info" />
+            )}
 
-            {/* Form Container */}
-            <View style={styles.card}>
-              {portal === "student" && (
-                <View>
-                  <Text style={styles.cardTitle}>الدخول إلى حساب الطالب</Text>
-                  <Text style={styles.cardDesc}>
-                    أدخل رقم الهوية أو الإقامة ورقم الطالب المسجل في C-Smart
-                  </Text>
+            {/* --------------------- بوابـة الطالـب --------------------- */}
+            {category === "student" && (
+              <View style={styles.formContainer}>
+                <Input
+                  label="رقم الهوية أو الإقامة"
+                  placeholder="10 أرقام تبدأ بـ 1 أو 2"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={studentNid}
+                  onChangeText={setStudentNid}
+                />
 
-                  <Input
-                    label="رقم الهوية أو الإقامة"
-                    placeholder="10 أرقام"
-                    keyboardType="numeric"
-                    maxLength={10}
-                    value={studentNid}
-                    onChangeText={setStudentNid}
-                  />
+                <Input
+                  label="رقم الطالب الداخلي — C‑Smart"
+                  placeholder="أدخل رقم C-Smart المسجل"
+                  value={studentCsmart}
+                  onChangeText={setStudentCsmart}
+                  helperText="الرقم التعريفي للطالب في نظام C-Smart الخاص بالمدرسة"
+                />
 
-                  <Input
-                    label="رقم الطالب الداخلي (C-Smart)"
-                    placeholder="رقم الطالب المدرسي"
-                    value={studentCsmart}
-                    onChangeText={setStudentCsmart}
-                  />
+                <Button
+                  title="دخول الطالب"
+                  onPress={handleStudentLogin}
+                  loading={loading}
+                  fullWidth
+                  style={{ marginTop: SPACING.sm }}
+                />
+              </View>
+            )}
 
-                  <Button
-                    title="تسجيل الدخول"
-                    onPress={handleStudentSubmit}
-                    loading={loading}
-                    disabled={!studentNid || !studentCsmart}
-                    style={{ marginTop: 12 }}
-                  />
-                </View>
-              )}
+            {/* ------------------- بوابـة ولـي الأمـر ------------------- */}
+            {category === "guardian" && (
+              <View style={styles.formContainer}>
+                {!challengeId ? (
+                  <>
+                    <Input
+                      label="رقم الهوية أو الإقامة"
+                      placeholder="10 أرقام"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={idNumber}
+                      onChangeText={setIdNumber}
+                      helperText="سيصل رمز التحقق في رسالة واتساب إلى الجوال المسجل بالمدرسة"
+                    />
 
-              {portal === "guardian" && (
-                <View>
-                  <Text style={styles.cardTitle}>الدخول إلى حساب ولي الأمر</Text>
-                  <Text style={styles.cardDesc}>
-                    أدخل رقم الهوية لتصلك رسالة تحقق برمز الدخول عبر واتساب
-                  </Text>
-
-                  {!challenge ? (
-                    <>
-                      <Input
-                        label="رقم الهوية أو الإقامة"
-                        placeholder="10 أرقام"
-                        keyboardType="numeric"
-                        maxLength={10}
-                        value={nid}
-                        onChangeText={setNid}
-                      />
-                      <Button
-                        title="إرسال رمز التحقق"
-                        onPress={handleRequestCode}
-                        loading={loading}
-                        disabled={nid.length !== 10}
-                        style={{ marginTop: 12 }}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.maskedText}>
-                        تم إرسال الرمز إلى الرقم المسجل: {challenge.masked}
+                    <Button
+                      title="إرسال رمز التحقق"
+                      onPress={() => handleRequestOtp("guardian")}
+                      loading={loading}
+                      fullWidth
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.otpHeader}>
+                      <Text style={styles.otpTitle}>أدخل رمز التحقق</Text>
+                      <Text style={styles.otpSub}>
+                        الرمز المكون من 6 أرقام المرسل إلى {maskedPhone}
                       </Text>
-                      <Input
-                        label="رمز التحقق (6 أرقام)"
-                        placeholder="000000"
-                        keyboardType="numeric"
-                        maxLength={6}
-                        value={code}
-                        onChangeText={setCode}
-                      />
-                      <Button
-                        title="تأكيد الدخول"
-                        onPress={handleVerifyCode}
-                        loading={loading}
-                        disabled={code.length !== 6}
-                        style={{ marginTop: 10 }}
-                      />
-                      <View style={styles.resendRow}>
-                        <Button
-                          title={countdown > 0 ? `إعادة الإرسال (${countdown})` : "إعادة إرسال الرمز"}
-                          variant="ghost"
-                          disabled={countdown > 0 || loading}
-                          onPress={handleRequestCode}
-                          style={{ flex: 1 }}
-                        />
-                        <Button
-                          title="تغيير الرقم"
-                          variant="ghost"
-                          onPress={resetFormState}
-                          style={{ flex: 1 }}
-                        />
-                      </View>
-                    </>
-                  )}
-                </View>
-              )}
+                    </View>
 
-              {portal === "staff" && (
-                <View>
-                  <Text style={styles.cardTitle}>الدخول للكادر التعليمي والإداري</Text>
-                  
-                  {/* Mode switcher for staff */}
-                  <View style={styles.subTabRow}>
-                    <TouchableOpacity
-                      style={[styles.subTab, staffAuthMode === "otp" && styles.subTabActive]}
-                      onPress={() => { setStaffAuthMode("otp"); resetFormState(); }}
+                    <Input
+                      label="رمز التحقق (OTP)"
+                      placeholder="••••••"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      autoFocus
+                    />
+
+                    <Button
+                      title="تأكيد الدخول"
+                      onPress={() => handleVerifyOtp("guardian")}
+                      loading={loading}
+                      fullWidth
+                      disabled={otpCode.length !== 6}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+
+                    <View style={styles.otpActions}>
+                      <TouchableOpacity
+                        disabled={timer > 0 || loading}
+                        onPress={() => handleRequestOtp("guardian")}
+                        style={styles.resendBtn}
+                      >
+                        <Text
+                          style={[
+                            styles.resendText,
+                            timer > 0 && styles.resendTextDisabled,
+                          ]}
+                        >
+                          {timer > 0
+                            ? `إعادة الإرسال بعد (${timer}ث)`
+                            : "إعادة إرسال الرمز"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setChallengeId(null);
+                          setOtpCode("");
+                        }}
+                        style={styles.changeBtn}
+                      >
+                        <Text style={styles.changeText}>تغيير رقم الهوية</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* ---------------- بوابـة الإدارة والموظفيـن ---------------- */}
+            {category === "staff" && (
+              <View style={styles.formContainer}>
+                {/* مفتاح تبديل الطريقة المعتمدة للموظف */}
+                <View style={styles.staffModeSwitch}>
+                  <TouchableOpacity
+                    onPress={() => setStaffMode("password")}
+                    style={[
+                      styles.staffModeOption,
+                      staffMode === "password" && styles.staffModeOptionActive,
+                    ]}
+                  >
+                    <KeyRound size={14} color={staffMode === "password" ? COLORS.primary : COLORS.mutedForeground} />
+                    <Text
+                      style={[
+                        styles.staffModeText,
+                        staffMode === "password" && styles.staffModeTextActive,
+                      ]}
                     >
-                      <Text style={[styles.subTabText, staffAuthMode === "otp" && styles.subTabTextActive]}>
-                        رمز التحقق (الهوية)
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.subTab, staffAuthMode === "password" && styles.subTabActive]}
-                      onPress={() => { setStaffAuthMode("password"); resetFormState(); }}
-                    >
-                      <Text style={[styles.subTabText, staffAuthMode === "password" && styles.subTabTextActive]}>
-                        كلمة المرور
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                      اسم المستخدم وكلمة المرور
+                    </Text>
+                  </TouchableOpacity>
 
-                  {staffAuthMode === "otp" ? (
-                    !challenge ? (
+                  <TouchableOpacity
+                    onPress={() => setStaffMode("otp")}
+                    style={[
+                      styles.staffModeOption,
+                      staffMode === "otp" && styles.staffModeOptionActive,
+                    ]}
+                  >
+                    <MessageSquare size={14} color={staffMode === "otp" ? COLORS.primary : COLORS.mutedForeground} />
+                    <Text
+                      style={[
+                        styles.staffModeText,
+                        staffMode === "otp" && styles.staffModeTextActive,
+                      ]}
+                    >
+                      رمز التحقق (OTP)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {staffMode === "password" ? (
+                  <>
+                    <Input
+                      label="اسم المستخدم أو البريد الإلكتروني"
+                      placeholder="username@staff.rikaz.app أو البريد"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={staffIdentifier}
+                      onChangeText={setStaffIdentifier}
+                    />
+
+                    <Input
+                      label="كلمة المرور"
+                      placeholder="••••••••"
+                      secureTextEntry
+                      value={staffPassword}
+                      onChangeText={setStaffPassword}
+                    />
+
+                    <Button
+                      title="تسجيل الدخول"
+                      onPress={handleStaffPasswordLogin}
+                      loading={loading}
+                      fullWidth
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {!challengeId ? (
                       <>
                         <Input
-                          label="رقم الهوية أو الإقامة"
+                          label="رقم الهوية أو الإقامة للموظف"
                           placeholder="10 أرقام"
-                          keyboardType="numeric"
+                          inputMode="numeric"
                           maxLength={10}
-                          value={nid}
-                          onChangeText={setNid}
+                          value={idNumber}
+                          onChangeText={setIdNumber}
+                          helperText="يجب أن يكون الحساب مسجلًا كموظف في إحدى مدارس ركاز"
                         />
+
                         <Button
                           title="إرسال رمز التحقق"
-                          onPress={handleRequestCode}
+                          onPress={() => handleRequestOtp("staff")}
                           loading={loading}
-                          disabled={nid.length !== 10}
-                          style={{ marginTop: 12 }}
+                          fullWidth
+                          style={{ marginTop: SPACING.sm }}
                         />
                       </>
                     ) : (
                       <>
-                        <Text style={styles.maskedText}>
-                          الرمز مرسل إلى: {challenge.masked}
-                        </Text>
+                        <View style={styles.otpHeader}>
+                          <Text style={styles.otpTitle}>رمز تحقق الموظف</Text>
+                          <Text style={styles.otpSub}>
+                            الرمز المرسل على واتساب إلى {maskedPhone}
+                          </Text>
+                        </View>
+
                         <Input
-                          label="رمز التحقق (6 أرقام)"
-                          placeholder="000000"
-                          keyboardType="numeric"
+                          label="رمز التحقق (OTP)"
+                          placeholder="••••••"
+                          inputMode="numeric"
                           maxLength={6}
-                          value={code}
-                          onChangeText={setCode}
+                          value={otpCode}
+                          onChangeText={setOtpCode}
+                          autoFocus
                         />
+
                         <Button
-                          title="تأكيد الدخول"
-                          onPress={handleVerifyCode}
+                          title="تأكيد دخول الموظف"
+                          onPress={() => handleVerifyOtp("staff")}
                           loading={loading}
-                          disabled={code.length !== 6}
-                          style={{ marginTop: 10 }}
+                          fullWidth
+                          disabled={otpCode.length !== 6}
+                          style={{ marginTop: SPACING.sm }}
                         />
-                        <View style={styles.resendRow}>
-                          <Button
-                            title={countdown > 0 ? `إعادة الإرسال (${countdown})` : "إعادة إرسال"}
-                            variant="ghost"
-                            disabled={countdown > 0 || loading}
-                            onPress={handleRequestCode}
-                            style={{ flex: 1 }}
-                          />
-                          <Button
-                            title="تغيير الرقم"
-                            variant="ghost"
-                            onPress={resetFormState}
-                            style={{ flex: 1 }}
-                          />
+
+                        <View style={styles.otpActions}>
+                          <TouchableOpacity
+                            disabled={timer > 0 || loading}
+                            onPress={() => handleRequestOtp("staff")}
+                          >
+                            <Text
+                              style={[
+                                styles.resendText,
+                                timer > 0 && styles.resendTextDisabled,
+                              ]}
+                            >
+                              {timer > 0
+                                ? `إعادة الإرسال بعد (${timer}ث)`
+                                : "إعادة إرسال الرمز"}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => {
+                              setChallengeId(null);
+                              setOtpCode("");
+                            }}
+                          >
+                            <Text style={styles.changeText}>تغيير الهوية</Text>
+                          </TouchableOpacity>
                         </View>
                       </>
-                    )
-                  ) : (
-                    <>
-                      <Input
-                        label="اسم المستخدم أو البريد الإلكتروني"
-                        placeholder="اسم المستخدم أو البريد"
-                        autoCapitalize="none"
-                        value={staffIdentifier}
-                        onChangeText={setStaffIdentifier}
-                      />
-                      <Input
-                        label="كلمة المرور"
-                        placeholder="••••••••"
-                        secureTextEntry
-                        value={staffPassword}
-                        onChangeText={setStaffPassword}
-                      />
-                      <Button
-                        title="دخول"
-                        onPress={handlePasswordSubmit}
-                        loading={loading}
-                        disabled={!staffIdentifier || !staffPassword}
-                        style={{ marginTop: 12 }}
-                      />
-                    </>
-                  )}
-                </View>
-              )}
+                    )}
+                  </>
+                )}
+              </View>
+            )}
+          </Card>
+
+          {/* Platform Owner entry link at bottom (مطابقة للمنصة) */}
+          <TouchableOpacity
+            style={styles.ownerLink}
+            onPress={() => setOwnerModalOpen(true)}
+            hitSlop={ACCESSIBILITY.standardHitSlop}
+          >
+            <ShieldCheck size={14} color={COLORS.mutedForeground} />
+            <Text style={styles.ownerLinkText}>دخول مالك المنصة</Text>
+          </TouchableOpacity>
+
+          {/* Footer copyright */}
+          <Text style={styles.footerText}>
+            منصة ركاز لإدارة المدارس © {new Date().getFullYear()}
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Platform Owner Modal */}
+      <Modal
+        visible={ownerModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOwnerModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Card style={styles.modalCard} variant="elevated">
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>دخول مالك المنصة</Text>
+              <Text style={styles.modalSubtitle}>
+                مخصص لإدارة المؤسسات وإعدادات النظام الشاملة
+              </Text>
             </View>
 
-            <Text style={styles.footerNote}>
-              البيئة: تجريبية معزولة (Staging / Test Sandbox)
-            </Text>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+            <Input
+              label="البريد الإلكتروني لمالك المنصة"
+              placeholder="owner@domain.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={ownerEmail}
+              onChangeText={setOwnerEmail}
+            />
+
+            <Input
+              label="كلمة المرور"
+              placeholder="••••••••"
+              secureTextEntry
+              value={ownerPassword}
+              onChangeText={setOwnerPassword}
+            />
+
+            <View style={styles.modalBtnRow}>
+              <Button
+                title="دخول مالك المنصة"
+                onPress={handlePlatformOwnerLogin}
+                loading={loading}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="إلغاء"
+                variant="outline"
+                onPress={() => setOwnerModalOpen(false)}
+              />
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -393,108 +666,174 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  tabContainer: {
-    flexDirection: "row-reverse", // RTL
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 14,
-    padding: 4,
-    marginVertical: 14,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xl,
     alignItems: "center",
-    borderRadius: 10,
   },
-  tabActive: {
-    backgroundColor: COLORS.card,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  headerSection: {
+    alignItems: "center",
+    marginBottom: SPACING.lg,
   },
-  tabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textMuted,
+  welcomeTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: "800",
+    color: COLORS.foreground,
+    marginTop: SPACING.xs,
+    textAlign: "center",
   },
-  tabTextActive: {
-    color: COLORS.primary,
-    fontWeight: "bold",
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: COLORS.text,
-    textAlign: "right",
-    marginBottom: 4,
-  },
-  cardDesc: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    textAlign: "right",
-    marginBottom: 16,
+  welcomeSubtitle: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.mutedForeground,
+    textAlign: "center",
+    maxWidth: 320,
+    marginTop: 4,
     lineHeight: 18,
   },
-  maskedText: {
-    fontSize: 13,
-    color: COLORS.primary,
-    textAlign: "right",
-    marginBottom: 10,
-    fontWeight: "500",
+  loginCard: {
+    width: "100%",
+    maxWidth: 420,
+    padding: SPACING.lg,
   },
-  resendRow: {
+  descBanner: {
     flexDirection: "row-reverse",
-    marginTop: 8,
+    alignItems: "flex-start",
+    backgroundColor: COLORS.secondary,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
   },
-  subTabRow: {
-    flexDirection: "row-reverse",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 14,
-  },
-  subTab: {
+  descBannerText: {
     flex: 1,
-    paddingVertical: 7,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.secondaryForeground,
+    lineHeight: 18,
+    textAlign: "right",
+  },
+  formContainer: {
+    marginTop: SPACING.xs,
+  },
+  staffModeSwitch: {
+    flexDirection: "row-reverse",
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 3,
+    marginBottom: SPACING.md,
+  },
+  staffModeOption: {
+    flex: 1,
+    flexDirection: "row-reverse",
     alignItems: "center",
-    borderRadius: 8,
+    justifyContent: "center",
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    gap: 4,
   },
-  subTabActive: {
-    backgroundColor: "#FFFFFF",
+  staffModeOptionActive: {
+    backgroundColor: COLORS.card,
+    ...SHADOWS.sm,
   },
-  subTabText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  subTabTextActive: {
-    color: COLORS.primary,
-    fontWeight: "bold",
-  },
-  footerNote: {
-    textAlign: "center",
-    color: COLORS.textMuted,
+  staffModeText: {
     fontSize: 11,
-    marginTop: 24,
+    fontWeight: "600",
+    color: COLORS.mutedForeground,
+  },
+  staffModeTextActive: {
+    color: COLORS.primary,
+  },
+  otpHeader: {
+    alignItems: "center",
+    marginBottom: SPACING.md,
+  },
+  otpTitle: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: "700",
+    color: COLORS.foreground,
+  },
+  otpSub: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+    textAlign: "center",
+  },
+  otpActions: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.xs,
+  },
+  resendBtn: {
+    padding: SPACING.xs,
+  },
+  resendText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  resendTextDisabled: {
+    color: COLORS.mutedForeground,
+  },
+  changeBtn: {
+    padding: SPACING.xs,
+  },
+  changeText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.mutedForeground,
+  },
+  ownerLink: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  ownerLinkText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.mutedForeground,
+    fontWeight: "600",
+  },
+  footerText: {
+    fontSize: 11,
+    color: COLORS.mutedForeground,
+    marginTop: SPACING.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(11, 36, 37, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 380,
+    padding: SPACING.xl,
+  },
+  modalHeader: {
+    alignItems: "flex-end",
+    marginBottom: SPACING.md,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  modalSubtitle: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+  },
+  modalBtnRow: {
+    flexDirection: "row-reverse",
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
   },
 });
