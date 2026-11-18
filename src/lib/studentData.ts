@@ -98,3 +98,11 @@ export function riyadhWeekday(d: Date): number {
   const wd = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Riyadh", weekday: "short" }).format(d);
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
 }
+
+/** تاريخ اليوم YYYY-MM-DD بتوقيت الرياض، و«قبل n يوم». */
+export function riyadhToday(d: Date = new Date()): string {
+  return new Date(d.getTime() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+export function daysAgo(n: number, d: Date = new Date()): string {
+  return riyadhToday(new Date(d.getTime() - n * 86400_000));
+}

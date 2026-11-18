@@ -13,6 +13,14 @@ import { StudentComm } from "./screens/student/StudentComm";
 import { StudentSchedule } from "./screens/student/StudentSchedule";
 import { StudentMore } from "./screens/student/StudentMore";
 import { StudentAccount } from "./screens/student/StudentAccount";
+import { GuardianShell } from "./screens/guardian/GuardianScreens";
+import { Classrooms } from "./screens/shared/Classrooms";
+import { StudentPickup } from "./screens/shared/Pickup";
+import { Events } from "./screens/shared/Events";
+import { NewChat, Thread } from "./screens/shared/Conversations";
+import { NotificationsList } from "./screens/shared/Notifications";
+import { SubScreen } from "./components/StudentKit";
+import type { Conversation } from "./api/family";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { LoginScreen } from "./screens/LoginScreen";
 import { ChooseContextScreen } from "./screens/ChooseContextScreen";
@@ -83,7 +91,8 @@ const STUDENT_TABS: BottomItem<StudentTab>[] = [
 
 const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
   const [tab, setTabRaw] = useState<StudentTab>("home");
-  const [sub, setSub] = useState<StudentSub | null>(null);
+  const [sub, setSub] = useState<StudentSub | "thread" | "newchat" | null>(null);
+  const [conv, setConv] = useState<Conversation | null>(null);
   const setTab = (t: StudentTab) => {
     setSub(null);
     setTabRaw(t);
@@ -97,15 +106,28 @@ const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
     });
     return () => h.remove();
   }, [tab, sub]);
-  const back = () => setSub(null);
+  const back = () => {
+    setSub(null);
+    setConv(null);
+  };
+  const openConv = (c: Conversation) => {
+    setConv(c);
+    setSub("thread");
+  };
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        {sub === "homework" ? <StudentHomework onBack={back} />
+        {sub === "thread" && conv ? <Thread conv={conv} onBack={back} />
+          : sub === "newchat" ? <NewChat role="student" onBack={back} onCreated={(id) => openConv({ id, title: "محادثة جديدة", kind: "student" })} />
+          : sub === "homework" ? <StudentHomework onBack={back} />
           : sub === "results" ? <StudentResults onBack={back} />
           : sub === "attendance" ? <StudentAttendance onBack={back} />
+          : sub === "classrooms" ? <Classrooms onBack={back} canComment />
+          : sub === "pickup" ? <StudentPickup onBack={back} />
+          : sub === "events" ? <Events onBack={back} />
+          : sub === "notifications" ? <SubScreen title="الإشعارات" eyebrow="تنبيهاتك" onBack={back}><NotificationsList /></SubScreen>
           : tab === "home" ? <StudentHome onTab={setTab} onOpen={setSub} />
-          : tab === "comm" ? <StudentComm />
+          : tab === "comm" ? <StudentComm onOpen={openConv} onNew={() => setSub("newchat")} />
           : tab === "schedule" ? <StudentSchedule />
           : tab === "more" ? <StudentMore onOpen={setSub} onTab={setTab} />
           : <StudentAccount onSwitch={onSwitch} />}
@@ -145,6 +167,7 @@ const Root: React.FC = () => {
   if (picker) return <ChooseContextScreen onClose={() => setPicker(false)} />;
 
   if (active.role === "student") return <StudentShell onSwitch={() => setPicker(true)} />;
+  if (active.role === "guardian") return <GuardianShell key={active.key} onSwitch={() => setPicker(true)} />;
 
   return (
     <View style={styles.flex}>

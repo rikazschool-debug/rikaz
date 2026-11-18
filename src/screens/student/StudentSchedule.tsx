@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Clock, UserRound } from "lucide-react-native";
 import { AppText } from "../../components/ui";
 import { FadeIn } from "../../components/FadeIn";
-import { DataState, Panel, Pill, ScreenTitle, SegmentTabs, studentStyles } from "../../components/StudentKit";
+import { BackHeader, DataState, Panel, Pill, ScreenTitle, SegmentTabs, studentStyles } from "../../components/StudentKit";
 import { fetchHomework, fetchOverview } from "../../api/student";
 import { schoolWeek } from "../../lib/mask";
 import { byKind, DAY_NAMES, hm, lessonsOn, riyadhWeekday, schoolTime, SUB_STATUS, type Slot } from "../../lib/studentData";
@@ -40,7 +40,7 @@ const DayList: React.FC<{ rows: Slot[] }> = ({ rows }) =>
     <DataState empty emptyTitle="لا توجد حصص في هذا اليوم" />
   );
 
-export const StudentSchedule: React.FC = () => {
+export const StudentSchedule: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("day");
   const week = useMemo(() => schoolWeek(new Date()), []);
@@ -54,7 +54,7 @@ export const StudentSchedule: React.FC = () => {
   return (
     <ScrollView style={studentStyles.screen} contentContainerStyle={[studentStyles.content, { paddingTop: insets.top + SPACING.md, paddingBottom: SPACING.xxxl }]}>
       <StatusBar style="dark" />
-      <ScreenTitle eyebrow={ov.data?.student.section ? `شعبة ${ov.data.student.section}` : "جدولي"} title="الجدول الدراسي" />
+      {onBack ? <BackHeader eyebrow={ov.data?.student.name ?? "الجدول"} title="الجدول الدراسي" onBack={onBack} /> : <ScreenTitle eyebrow={ov.data?.student.section ? `شعبة ${ov.data.student.section}` : "جدولي"} title="الجدول الدراسي" />}
       <SegmentTabs label="الجدول" value={tab} onChange={setTab} items={[{ key: "day", label: "اليوم" }, { key: "week", label: "الأسبوع" }, { key: "tests", label: "الاختبارات" }]} />
       {tab === "day" ? (
         <View style={styles.days} accessibilityRole="tablist" accessibilityLabel="أيام الأسبوع">

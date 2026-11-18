@@ -15,7 +15,7 @@ import { COLORS, SPACING } from "../../theme/tokens";
 type Tab = "today" | "homework" | "events";
 export type StudentTab = "account" | "comm" | "home" | "schedule" | "more";
 /** شاشات بيانات الطالب داخل التطبيق. */
-export type StudentSub = "homework" | "results" | "attendance";
+export type StudentSub = "homework" | "results" | "attendance" | "classrooms" | "pickup" | "events" | "notifications";
 type Go = { tab?: StudentTab; sub?: StudentSub };
 
 const QUICK: { key: string; label: string; hint: string; icon: LucideIcon; go?: Go; web?: SectionKey }[] = [
@@ -24,15 +24,15 @@ const QUICK: { key: string; label: string; hint: string; icon: LucideIcon; go?: 
   { key: "results", label: "النتائج", hint: "درجاتك المنشورة", icon: Award, go: { sub: "results" } },
   { key: "attendance", label: "الحضور", hint: "سجل المواظبة", icon: CalendarCheck, go: { sub: "attendance" } },
   { key: "communication", label: "المحادثات", hint: "معلموك", icon: MessagesSquare, go: { tab: "comm" } },
-  { key: "classrooms", label: "الفصول الرقمية", hint: "مقرراتك", icon: School, web: "classrooms" },
-  { key: "pickup", label: "الاستئذان", hint: "الخروج المبكر", icon: DoorOpen, web: "pickup" },
-  { key: "events", label: "الفعاليات", hint: "أنشطة المدرسة", icon: PartyPopper, web: "events" },
+  { key: "classrooms", label: "الفصول الرقمية", hint: "مقرراتك", icon: School, go: { sub: "classrooms" } },
+  { key: "pickup", label: "الاستئذان", hint: "الخروج المبكر", icon: DoorOpen, go: { sub: "pickup" } },
+  { key: "events", label: "الفعاليات", hint: "أنشطة المدرسة", icon: PartyPopper, go: { sub: "events" } },
 ];
 
 const TAB_CONTENT: Record<Tab, { icon: LucideIcon; title: string; body: string; action: string; go?: Go; web?: SectionKey }> = {
   today: { icon: CalendarDays, title: "حصص اليوم", body: "حصصك ومواعيدها ومعلموها كما نشرتها المدرسة.", action: "فتح جدولي", go: { tab: "schedule" } },
   homework: { icon: ClipboardList, title: "مذكرة الواجبات", body: "واجباتك واختباراتك ومواعيد تسليمها وحالتها.", action: "فتح الواجبات", go: { sub: "homework" } },
-  events: { icon: PartyPopper, title: "الأنشطة والفعاليات", body: "تعرّف على فعاليات مدرستك وأنشطتها القادمة.", action: "فتح الفعاليات", web: "events" },
+  events: { icon: PartyPopper, title: "الأنشطة والفعاليات", body: "تعرّف على فعاليات مدرستك وأنشطتها القادمة.", action: "فتح الفعاليات", go: { sub: "events" } },
 };
 
 function greeting(): string {
@@ -69,7 +69,7 @@ export const StudentHome: React.FC<{ onTab: (t: StudentTab) => void; onOpen: (s:
           <AppText variant="caption" color={COLORS.mutedForeground}>{greeting()}</AppText>
           <AppText variant="headline" weight="extrabold" numberOfLines={1}>{display}</AppText>
         </View>
-        <IconButton icon={Bell} label="الإشعارات" onPress={() => openSection("notifications")} />
+        <IconButton icon={Bell} label="الإشعارات" onPress={() => onOpen("notifications")} />
       </View>
 
       <FadeIn>

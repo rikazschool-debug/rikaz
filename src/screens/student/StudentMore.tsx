@@ -23,7 +23,10 @@ const HINT: Partial<Record<SectionKey, string>> = {
 
 /** كل أقسام الطالب كما في المنصة، مجمّعة. */
 /** أقسام لها شاشة داخل التطبيق؛ البقية تفتح في المنصة. */
-const IN_APP: Partial<Record<SectionKey, { sub?: StudentSub; tab?: StudentTab }>> = { homework: { sub: "homework" }, tests: { sub: "homework" }, schedule: { tab: "schedule" }, communication: { tab: "comm" } };
+const IN_APP: Partial<Record<SectionKey, { sub?: StudentSub; tab?: StudentTab }>> = {
+  homework: { sub: "homework" }, tests: { sub: "homework" }, schedule: { tab: "schedule" }, communication: { tab: "comm" },
+  classrooms: { sub: "classrooms" }, pickup: { sub: "pickup" }, events: { sub: "events" }, notifications: { sub: "notifications" },
+};
 const EXTRA: { sub: StudentSub; label: string; hint: string; icon: LucideIcon }[] = [
   { sub: "results", label: "الدرجات والنتائج", hint: "نتائجك المنشورة", icon: Award },
   { sub: "attendance", label: "الحضور والغياب", hint: "تقويم المواظبة", icon: CalendarCheck },
@@ -71,7 +74,6 @@ export const StudentMore: React.FC<{ onOpen: (s: StudentSub) => void; onTab: (t:
         </View>
       ))}
       <WebCard title="منصة ركاز على الويب" subtitle="لإدارة بياناتك وبقية الأقسام" onPress={() => void Linking.openURL(CONFIG.platformUrl)} />
-      <AppText variant="micro" color={COLORS.mutedForeground} align="center">الفصول الرقمية والاستئذان والفعاليات والإشعارات تفتح حاليًا في منصة ركاز.</AppText>
     </ScrollView>
   );
 };

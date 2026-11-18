@@ -1,5 +1,7 @@
 import React from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { ChevronLeft, ChevronRight, ExternalLink, type LucideIcon } from "lucide-react-native";
 import { AppText } from "./ui";
 import { RikazLogo } from "./RikazLogo";
@@ -196,4 +198,42 @@ const stateStyles = StyleSheet.create({
   box: { paddingVertical: SPACING.xl, gap: SPACING.sm, alignItems: "center" },
   retry: { marginTop: SPACING.sm, backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: SPACING.lg, minHeight: 44, justifyContent: "center" },
   pill: { borderRadius: 999, paddingHorizontal: SPACING.sm + 2, paddingVertical: 2, alignSelf: "flex-start" },
+});
+
+/** شاشة فرعية: تمرير + رأس رجوع (أو عنوان عادي) بنفس هوامش شاشات الطالب. */
+export const SubScreen: React.FC<{ title: string; eyebrow?: string; onBack?: () => void; children: React.ReactNode; refreshing?: boolean; onRefresh?: () => void }> = ({ title, eyebrow, onBack, children, refreshing, onRefresh }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <ScrollView
+      style={studentStyles.screen}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} /> : undefined}
+      contentContainerStyle={[studentStyles.content, { paddingTop: insets.top + SPACING.md, paddingBottom: SPACING.xxxl }]}
+    >
+      <StatusBar style="dark" />
+      {onBack ? <BackHeader eyebrow={eyebrow} title={title} onBack={onBack} /> : <ScreenTitle eyebrow={eyebrow} title={title} />}
+      {children}
+    </ScrollView>
+  );
+};
+
+/** اختيار من شرائح أفقية (الأبناء، الفئات…). */
+export function Chips<T extends string>({ items, value, onChange, label }: { items: { key: T; label: string }[]; value: T; onChange: (v: T) => void; label: string }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={chipStyles.row} accessibilityRole="tablist" accessibilityLabel={label}>
+      {items.map((it) => {
+        const on = it.key === value;
+        return (
+          <Pressable key={it.key} onPress={() => onChange(it.key)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[chipStyles.chip, on && chipStyles.on]}>
+            <AppText variant="label" weight="bold" color={on ? COLORS.primaryForeground : COLORS.foreground} numberOfLines={1}>{it.label}</AppText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+const chipStyles = StyleSheet.create({
+  row: { gap: SPACING.sm, paddingVertical: 2 },
+  chip: { minHeight: 40, justifyContent: "center", borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, borderRadius: 999, paddingHorizontal: SPACING.md },
+  on: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
 });
