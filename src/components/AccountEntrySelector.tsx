@@ -2,6 +2,8 @@ import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Check, GraduationCap, School, Users, type LucideIcon } from "lucide-react-native";
 import { AppText } from "./ui";
+import { useReducedMotion } from "../hooks/useReducedMotion";
+import { pressScale } from "../lib/motion";
 import { LOGIN_COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 
 export type AccountEntry = "student" | "guardian" | "staff";
@@ -22,6 +24,7 @@ export const ENTRY_ICON: Record<AccountEntry, LucideIcon> = { student: Graduatio
 
 /** بطاقات اختيار نوع الحساب: اختيار البطاقة لا يمنح صلاحية، فالأدوار تأتي من عضويات الخادم. */
 export function AccountEntrySelector({ value, onChange }: { value: AccountEntry; onChange: (value: AccountEntry) => void }) {
+  const reduced = useReducedMotion();
   return (
     <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="نوع الحساب">
       {OPTIONS.map((o) => {
@@ -34,7 +37,7 @@ export function AccountEntrySelector({ value, onChange }: { value: AccountEntry;
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
             accessibilityLabel={`${o.label}، ${o.hint}`}
-            style={({ pressed }) => [styles.card, on && styles.cardOn, pressed && !on && styles.cardPressed]}
+            style={({ pressed }) => [styles.card, on && styles.cardOn, pressed && !on && styles.cardPressed, { transform: [{ scale: pressScale(pressed, reduced) }] }]}
           >
             {on ? (
               <View style={styles.check}>

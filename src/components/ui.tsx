@@ -1,6 +1,8 @@
-import React, { forwardRef, useState } from "react";
+import React, { forwardRef, useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -13,6 +15,8 @@ import {
   ViewStyle,
 } from "react-native";
 import { AlertCircle, CheckCircle2, Info, type LucideIcon } from "lucide-react-native";
+import { useReducedMotion } from "../hooks/useReducedMotion";
+import { pressScale } from "../lib/motion";
 import { COLORS, FONTS, FontWeightName, RADIUS, SHADOWS, SPACING, TOUCH, TYPE, TypeVariant } from "../theme/tokens";
 
 /* ------------------------------------------------------------------ النص */
@@ -68,6 +72,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "prima
       }
     : base;
   const off = disabled || loading;
+  const reduced = useReducedMotion();
   return (
     <Pressable
       onPress={onPress}
@@ -82,6 +87,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "prima
         styles.btn,
         { backgroundColor: pressed ? v.pressed : v.bg, borderColor: v.border ?? "transparent", borderWidth: v.border ? 1 : 0 },
         off && styles.btnOff,
+        { transform: [{ scale: pressScale(pressed && !off, reduced) }] },
         style,
       ]}
     >
@@ -184,6 +190,13 @@ const TONE: Record<NoticeTone, { bg: string; fg: string; icon: LucideIcon }> = {
 export const Notice: React.FC<{ tone?: NoticeTone; title?: string; children: React.ReactNode; style?: StyleProp<ViewStyle> }> = ({ tone = "info", title, children, style }) => {
   const t = TONE[tone];
   const Icon = t.icon;
+  const spoken = typeof children === "string" ? children : null;
+  // iOS لا يقرأ المناطق الحيّة؛ نعلن رسالة الخطأ صراحةً لقارئ الشاشة.
+  useEffect(() => {
+    if (tone === "error" && Platform.OS === "ios" && spoken) {
+      AccessibilityInfo.announceForAccessibility([title, spoken].filter(Boolean).join("، "));
+    }
+  }, [tone, title, spoken]);
   return (
     <View
       style={[styles.notice, { backgroundColor: t.bg }, style]}

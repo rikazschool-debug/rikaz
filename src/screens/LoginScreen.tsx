@@ -6,6 +6,7 @@ import { BadgeCheck, Check, ExternalLink, Lock, MessageCircle, ShieldCheck, type
 import { RikazLogo } from "../components/RikazLogo";
 import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT, ENTRY_ICON } from "../components/AccountEntrySelector";
 import { OtpCodeInput } from "../components/OtpCodeInput";
+import { FadeIn } from "../components/FadeIn";
 import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
 import { COLORS, LOGIN_COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
 import { CONFIG } from "../config";
@@ -56,6 +57,7 @@ export const LoginScreen: React.FC = () => {
             </View>
             <AccountEntrySelector value={entry} onChange={setEntry} />
             <Divider style={{ backgroundColor: LOGIN_COLORS.border }} />
+            <FadeIn key={entry} style={styles.gap}>
             <View style={styles.formHead}>
               <View style={styles.formHeadIcon}>
                 <EntryIcon size={22} color={LOGIN_COLORS.primary} />
@@ -89,6 +91,7 @@ export const LoginScreen: React.FC = () => {
                 )}
               </>
             )}
+            </FadeIn>
           </Card>
 
           <View style={styles.trustRow}>
@@ -116,7 +119,7 @@ const TrustItem: React.FC<{ icon: LucideIcon; label: string }> = ({ icon: Icon, 
 
 /** خطوات دخول ولي الأمر والكادر: رقم الهوية ثم رمز التحقق. */
 const Steps: React.FC<{ step: 1 | 2 }> = ({ step }) => (
-  <View style={[styles.steps, styles.stepsRtl]} accessibilityLabel={`الخطوة ${step} من 2`}>
+  <View style={[styles.steps, styles.stepsRtl]} accessible accessibilityRole="progressbar" accessibilityLabel={`الخطوة ${step} من 2`}>
     {(["رقم الهوية", "رمز التحقق"] as const).map((label, i) => {
       const n = i + 1;
       const done = n < step;

@@ -6,6 +6,9 @@ import {
   ShieldCheck, Sparkles, UserCog, Users, UsersRound,
 } from "lucide-react-native";
 import { AppText } from "./ui";
+import { FadeIn } from "./FadeIn";
+import { useReducedMotion } from "../hooks/useReducedMotion";
+import { pressScale } from "../lib/motion";
 import { CONFIG } from "../config";
 import type { Role, SchoolPerms } from "../api/types";
 import { groupSections, isFamilyRole, SECTION_GROUP_LABEL, SECTIONS, sectionLabel, sectionsFor } from "../lib/sections";
@@ -28,8 +31,13 @@ export const RoleSections: React.FC<{ role: Role; perms: SchoolPerms | null; loa
     );
   }
   const groups = groupSections(sectionsFor(role, perms));
+  return <SectionGroups groups={groups} role={role} />;
+};
+
+const SectionGroups: React.FC<{ groups: ReturnType<typeof groupSections>; role: Role }> = ({ groups, role }) => {
+  const reduced = useReducedMotion();
   return (
-    <View style={styles.wrap}>
+    <FadeIn style={styles.wrap}>
       {groups.map((g) => (
         <View key={g.group} style={styles.group}>
           <View style={styles.groupHead}>
@@ -50,7 +58,7 @@ export const RoleSections: React.FC<{ role: Role; perms: SchoolPerms | null; loa
                   accessibilityLabel={label}
                   accessibilityHint="يفتح القسم في منصة ركاز، وقد يُطلب منك الدخول هناك"
                   onPress={() => void Linking.openURL(`${CONFIG.platformUrl}${def.path}`)}
-                  style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.tile, pressed && styles.pressed, { transform: [{ scale: pressScale(pressed, reduced) }] }]}
                 >
                   <View style={styles.icon}>
                     <Icon size={24} color={COLORS.primary} strokeWidth={2} />
@@ -67,7 +75,7 @@ export const RoleSections: React.FC<{ role: Role; perms: SchoolPerms | null; loa
       <AppText variant="caption" color={COLORS.mutedForeground}>
         تفتح الأقسام حاليًا في منصة ركاز على الويب، وتظهر لك حسب صفتك وصلاحياتك في المدرسة.
       </AppText>
-    </View>
+    </FadeIn>
   );
 };
 
