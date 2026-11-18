@@ -7,7 +7,9 @@ import { FadeIn } from "../../components/FadeIn";
 import { BackHeader, DataState, Panel, Pill, SegmentTabs, studentStyles } from "../../components/StudentKit";
 import { fetchHomework } from "../../api/student";
 import { byKind, groupHomework, HW_GROUP_LABEL, schoolTime, SUB_STATUS, type HwGroup } from "../../lib/studentData";
-import { useStudentQuery } from "./useStudentData";
+import { useStudentQuery, useStudentScope } from "./useStudentData";
+import { HomeworkDetail } from "../shared/HomeworkDetail";
+import { Pressable } from "react-native";
 import { COLORS, SPACING } from "../../theme/tokens";
 
 const GROUPS: HwGroup[] = ["due", "late", "returned", "done", "all"];
@@ -18,9 +20,12 @@ export const StudentHomework: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const insets = useSafeAreaInsets();
   const [kind, setKind] = useState<"homework" | "test">("homework");
   const [group, setGroup] = useState<HwGroup>("due");
-  const q = useStudentQuery((_, id) => fetchHomework(id));
+  const scope = useStudentScope();
+  const [open, setOpen] = useState<string | null>(null);
+  const q = useStudentQuery((_, id) => fetchHomework(id), [open]);
   const groups = groupHomework(byKind(q.data ?? [], kind), Date.now());
   const rows = groups[group];
+  if (open) return <HomeworkDetail id={open} role={scope ? "guardian" : "student"} onBack={() => setOpen(null)} />;
   return (
     <ScrollView style={studentStyles.screen} contentContainerStyle={[studentStyles.content, { paddingTop: insets.top + SPACING.md, paddingBottom: SPACING.xxxl }]}>
       <StatusBar style="dark" />
@@ -38,7 +43,8 @@ export const StudentHomework: React.FC<{ onBack: () => void }> = ({ onBack }) =>
         <DataState loading={q.loading} error={q.error} missing={q.missing} empty={!rows.length} emptyTitle={kind === "test" ? "لا توجد اختبارات هنا" : "لا توجد واجبات هنا"} onRetry={q.reload}>
           <View style={styles.list}>
             {rows.map((r) => (
-              <Panel key={r.id} style={styles.card}>
+              <Pressable key={r.id} accessibilityRole="button" accessibilityLabel={r.title} onPress={() => setOpen(r.id)} style={({ pressed }) => pressed && { opacity: 0.85 }}>
+              <Panel style={styles.card}>
                 <View style={styles.head}>
                   <AppText variant="bodyStrong" style={styles.flex} numberOfLines={2}>{r.title}</AppText>
                   <Pill label={SUB_STATUS[r.sub_status] ?? r.sub_status} tone={tone(r.sub_status)} />
@@ -48,6 +54,7 @@ export const StudentHomework: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                 {r.last_late ? <AppText variant="micro" color={COLORS.destructive}>سُلّم متأخرًا</AppText> : null}
                 {r.removed ? <AppText variant="micro" color={COLORS.mutedForeground}>انتقلت من الشعبة؛ يبقى للاطلاع فقط</AppText> : null}
               </Panel>
+              </Pressable>
             ))}
           </View>
         </DataState>

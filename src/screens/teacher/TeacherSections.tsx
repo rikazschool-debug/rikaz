@@ -14,6 +14,7 @@ import {
   MEETING_STATUS, nextMark, PRIORITY, slotsByDay, TASK_STATUS, type EduKind, type MarkStatus,
 } from "../../lib/teacherData";
 import { COLORS, SPACING } from "../../theme/tokens";
+import { HomeworkDetail } from "../shared/HomeworkDetail";
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
 const MARK_TONE: Record<MarkStatus, "success" | "danger" | "accent" | "muted"> = { present: "success", absent: "danger", late: "accent", excused: "muted" };
@@ -147,18 +148,22 @@ export const TeacherSchedule: React.FC<{ onBack?: () => void }> = ({ onBack }) =
 export const TeacherHomework: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { active } = useAuth();
   const [kind, setKind] = useState<"homework" | "test">("homework");
-  const q = useLoad(() => fetchTeacherHomework(active?.schoolId ?? "", kind), [active?.schoolId, kind]);
+  const [open, setOpen] = useState<string | null>(null);
+  const q = useLoad(() => fetchTeacherHomework(active?.schoolId ?? "", kind), [active?.schoolId, kind, open]);
+  if (open) return <HomeworkDetail id={open} role="teacher" onBack={() => setOpen(null)} />;
   return (
     <SubScreen title="الواجبات والاختبارات" eyebrow="ما أنشأته لطلابك" onBack={onBack} refreshing={q.loading} onRefresh={q.reload}>
       <SegmentTabs label="النوع" value={kind} onChange={setKind} items={[{ key: "homework", label: "الواجبات" }, { key: "test", label: "الاختبارات" }]} />
       <DataState loading={q.loading} error={q.error} empty={!q.data?.length} emptyTitle={kind === "test" ? "لا توجد اختبارات" : "لا توجد واجبات"} onRetry={q.reload}>
         <View style={styles.list}>
           {(q.data ?? []).map((h) => (
-            <Panel key={h.id} style={styles.card}>
+            <Pressable key={h.id} accessibilityRole="button" accessibilityLabel={h.title} onPress={() => setOpen(h.id)}>
+            <Panel style={styles.card}>
               <View style={styles.head}><AppText variant="bodyStrong" weight="extrabold" style={styles.flex} numberOfLines={2}>{h.title}</AppText><Pill label={HW_STATUS[h.status] ?? h.status} tone={h.status === "published" ? "success" : "muted"} /></View>
               <AppText variant="micro" color={COLORS.mutedForeground}>{[h.subject, h.section, h.due_at ? `التسليم ${schoolTime(h.due_at)}` : null].filter(Boolean).join(" · ")}</AppText>
               <AppText variant="caption">{`سلّم ${h.submitted ?? 0} من ${h.targets ?? 0}${h.late ? ` · متأخر ${h.late}` : ""}${h.to_grade ? ` · بانتظار التصحيح ${h.to_grade}` : ""}`}</AppText>
             </Panel>
+            </Pressable>
           ))}
         </View>
       </DataState>

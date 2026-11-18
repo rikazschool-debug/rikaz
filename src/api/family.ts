@@ -36,7 +36,7 @@ export const sendMessage = (conv: string, body: string, clientId: string, files:
 const BUCKET = "rikaz-files";
 export type ChatLimits = { voice: boolean; voice_max_sec: number; voice_max_bytes: number; attachments: boolean };
 export const fetchChatLimits = (conv: string) => rpc<ChatLimits | null>("cs_conv_limits", { _conv: conv });
-async function putFile(rec: { id: string; storage_path: string }, uri: string, mime: string) {
+export async function putFile(rec: { id: string; storage_path: string }, uri: string, mime: string) {
   const buf = await (await fetch(uri)).arrayBuffer();
   const up = await supabase.storage.from(BUCKET).upload(rec.storage_path, buf, { contentType: mime });
   if (up.error) { await supabase.from("files").delete().eq("id", rec.id); throw new Error("تعذر رفع الملف؛ أعد المحاولة."); }
