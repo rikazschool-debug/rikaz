@@ -5,8 +5,9 @@ import { AppText, Button, Notice, TextField } from "../../components/ui";
 import { Chips, DataState, Panel, Pill, SubScreen } from "../../components/StudentKit";
 import {
   fetchConversations, fetchGuardianContacts, fetchGuardianLinks, fetchMessages, fetchStudentContacts, inbox, KIND_LABEL,
-  markConversationRead, newKey, sendMessage, startFamilyConversation, startStudentConversation, type Contact, type Conversation, type Message,
+  markConversationRead, newKey, sendMessage, fetchChatLimits, uploadChatFile, uploadVoice, type ChatLimits, startFamilyConversation, startStudentConversation, type Contact, type Conversation, type Message,
 } from "../../api/family";
+import { AttachBar, MessageFiles, PendingList, VoiceRecorder, type PickedFile, type VoiceClip } from "./ChatMedia";
 import { useAuth } from "../../hooks/useAuth";
 import { errorText, useLoad } from "../../hooks/useLoad";
 import { schoolTime } from "../../lib/studentData";
@@ -59,6 +60,9 @@ export const Thread: React.FC<{ conv: Conversation; onBack: () => void }> = ({ c
   const [busy, setBusy] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const key = useRef(newKey());
+  const [limits, setLimits] = useState<ChatLimits | null>(null);
+  const [pending, setPending] = useState<PickedFile[]>([]);
+  useEffect(() => { void fetchChatLimits(conv.id).then(setLimits).catch(() => setLimits(null)); }, [conv.id]);
   const load = () => {
     setError(false);
     fetchMessages(conv.id).then((r) => { setRows(r); setMore(r.length >= 30); const last = r[r.length - 1]; if (last) void markConversationRead(conv.id, last.seq).catch(() => undefined); }).catch(() => setError(true));
@@ -70,10 +74,20 @@ export const Thread: React.FC<{ conv: Conversation; onBack: () => void }> = ({ c
     try { const r = await fetchMessages(conv.id, first.seq); setMore(r.length >= 30); setRows((x) => [...r, ...(x ?? [])]); } catch { setError(true); }
   };
   const readOnly = conv.status === "archived" || !!conv.send_block || conv.allow_replies === false;
+  const allowFiles = limits?.attachments !== false && (conv as { allow_attachments?: boolean }).allow_attachments !== false;
   const send = async () => {
-    if (!body.trim() || busy) return;
+    if ((!body.trim() && !pending.length) || busy) return;
     setBusy(true); setSendErr(null);
-    try { await sendMessage(conv.id, body.trim(), key.current); key.current = newKey(); setBody(""); load(); } catch (e) { setSendErr(errorText(e, "تعذّر إرسال الرسالة. حاول مرة أخرى.")); } finally { setBusy(false); }
+    try {
+      const ids: string[] = [];
+      for (const f of pending) ids.push(await uploadChatFile(conv.id, f));
+      await sendMessage(conv.id, body.trim(), key.current, ids); key.current = newKey(); setBody(""); setPending([]); load();
+    } catch (e) { setSendErr(errorText(e, "تعذّر إرسال الرسالة. حاول مرة أخرى.")); } finally { setBusy(false); }
+  };
+  const sendVoice = async (c: VoiceClip) => {
+    setSendErr(null);
+    try { const id = await uploadVoice(conv.id, c); await sendMessage(conv.id, "", newKey(), [id]); load(); }
+    catch (e) { setSendErr(errorText(e, "تعذّر إرسال التسجيل.")); throw e; }
   };
   return (
     <SubScreen title={conv.title ?? "محادثة"} eyebrow={`${KIND_LABEL[conv.kind] ?? "محادثة"}${conv.student_name ? ` · ${conv.student_name}` : ""}`} onBack={onBack}>
@@ -84,16 +98,23 @@ export const Thread: React.FC<{ conv: Conversation; onBack: () => void }> = ({ c
             <View key={m.id} style={[styles.bubble, m.mine ? styles.mine : styles.theirs]}>
               {!m.mine ? <AppText variant="micro" weight="bold" color={COLORS.primary}>{`${m.sender_name ?? ""}${m.sender_label ? ` · ${m.sender_label}` : ""}`}</AppText> : null}
               <AppText variant="body" color={m.mine ? COLORS.primaryForeground : COLORS.foreground}>{m.deleted_at ? "حُذفت هذه الرسالة" : m.body ?? ""}</AppText>
-              {m.files?.length ? <AppText variant="micro" color={m.mine ? COLORS.onPrimaryMuted : COLORS.mutedForeground}>{`مرفقات: ${m.files.map((f) => f.name).join("، ")}`}</AppText> : null}
+              {m.files?.length && !m.deleted_at ? <MessageFiles files={m.files} mine={m.mine} /> : null}
               {m.created_at ? <AppText variant="micro" color={m.mine ? COLORS.onPrimaryMuted : COLORS.mutedForeground}>{schoolTime(m.created_at)}</AppText> : null}
             </View>
           ))}
         </View>
       </DataState>
       {readOnly ? <Notice tone="info">هذه المحادثة للقراءة فقط.</Notice> : (
+        <View style={styles.gap}>
+        {pending.length ? <PendingList items={pending} onRemove={(k) => setPending((x) => x.filter((p) => p.key !== k))} /> : null}
+        <View style={styles.tools}>
+          {allowFiles ? <AttachBar disabled={busy} onPick={(f) => setPending((x) => [...x, ...f])} onError={setSendErr} /> : null}
+          {limits?.voice ? <VoiceRecorder limits={limits} disabled={busy} onSend={sendVoice} onError={setSendErr} /> : null}
+        </View>
         <View style={styles.composer}>
           <TextInput value={body} onChangeText={setBody} placeholder="اكتب رسالتك…" placeholderTextColor={COLORS.mutedForeground} multiline maxLength={4000} accessibilityLabel="نص الرسالة" style={styles.input} />
-          <Pressable onPress={() => void send()} disabled={busy || !body.trim()} accessibilityRole="button" accessibilityLabel="إرسال" style={[styles.plus, (busy || !body.trim()) && { opacity: 0.5 }]}><Send size={18} color={COLORS.primaryForeground} /></Pressable>
+          <Pressable onPress={() => void send()} disabled={busy || (!body.trim() && !pending.length)} accessibilityRole="button" accessibilityLabel="إرسال" style={[styles.plus, (busy || (!body.trim() && !pending.length)) && { opacity: 0.5 }]}><Send size={18} color={COLORS.primaryForeground} /></Pressable>
+        </View>
         </View>
       )}
       {sendErr ? <Notice tone="error">{sendErr}</Notice> : null}
@@ -154,6 +175,7 @@ export const unreadTotal = (rows: Conversation[]) => rows.reduce((s, c) => s + (
 export { Pill };
 
 const styles = StyleSheet.create({
+  tools: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, flexWrap: "wrap" },
   flex: { flex: 1 },
   gap: { gap: SPACING.md },
   row: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },

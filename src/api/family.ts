@@ -22,14 +22,38 @@ export type Conversation = {
   student_name?: string | null; unread?: number | null; last_at?: string | null; last_body?: string | null;
   send_block?: string | null; allow_replies?: boolean | null; counterpart?: string | null; school_name?: string | null;
 };
-export type Message = { id: string; seq: number; body: string | null; mine: boolean; sender_name?: string | null; sender_label?: string | null; created_at?: string; deleted_at?: string | null; files?: { id: string; name: string }[] | null };
+export type Message = { id: string; seq: number; body: string | null; mine: boolean; sender_name?: string | null; sender_label?: string | null; created_at?: string; deleted_at?: string | null; files?: ChatFile[] | null };
+export type ChatFile = { id: string; name: string; mime?: string | null; size_bytes?: number | null; storage_path?: string | null; duration?: number | null };
 export type Contact = { user_id: string; full_name: string; label: string | null; kind?: string | null; school_name?: string | null };
 
 export const fetchConversations = (schoolId: string) => rpc<Conversation[]>("my_conversations", { _school: schoolId }).then((r) => r ?? []);
 export const fetchMessages = (conv: string, before: number | null = null) =>
   rpc<Message[]>("conv_messages", { _conv: conv, _before: before, _limit: 30 }).then((r) => [...(r ?? [])].sort((a, b) => a.seq - b.seq));
 export const markConversationRead = (conv: string, seq: number) => rpc<unknown>("mark_conversation_read", { _conv: conv, _seq: seq });
-export const sendMessage = (conv: string, body: string, clientId: string) => rpc<unknown>("send_message", { _conv: conv, _body: body, _client_id: clientId, _reply_to: null, _files: [] });
+export const sendMessage = (conv: string, body: string, clientId: string, files: string[] = []) => rpc<unknown>("send_message", { _conv: conv, _body: body, _client_id: clientId, _reply_to: null, _files: files });
+
+/* ---------- مرفقات المحادثة (نفس مسار المنصة: سجل الملف ثم الرفع إلى rikaz-files) ---------- */
+const BUCKET = "rikaz-files";
+export type ChatLimits = { voice: boolean; voice_max_sec: number; voice_max_bytes: number; attachments: boolean };
+export const fetchChatLimits = (conv: string) => rpc<ChatLimits | null>("cs_conv_limits", { _conv: conv });
+async function putFile(rec: { id: string; storage_path: string }, uri: string, mime: string) {
+  const buf = await (await fetch(uri)).arrayBuffer();
+  const up = await supabase.storage.from(BUCKET).upload(rec.storage_path, buf, { contentType: mime });
+  if (up.error) { await supabase.from("files").delete().eq("id", rec.id); throw new Error("تعذر رفع الملف؛ أعد المحاولة."); }
+  return rec.id;
+}
+export async function uploadChatFile(conv: string, f: { uri: string; name: string; mime: string; size: number }): Promise<string> {
+  const rows = await rpc<{ id: string; storage_path: string }[]>("create_message_file", { _conv: conv, _name: f.name, _mime: f.mime, _size: f.size });
+  return putFile(rows[0]!, f.uri, f.mime);
+}
+export async function uploadVoice(conv: string, v: { uri: string; mime: string; size: number; seconds: number }): Promise<string> {
+  const rows = await rpc<{ id: string; storage_path: string }[]>("create_voice_file", { _conv: conv, _mime: v.mime, _size: v.size, _duration: v.seconds });
+  return putFile(rows[0]!, v.uri, v.mime);
+}
+export async function signedFileUrl(path: string, download?: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 300, download ? { download } : undefined);
+  return error ? null : data?.signedUrl ?? null;
+}
 export const fetchStudentContacts = () => rpc<Contact[]>("student_contacts").then((r) => r ?? []);
 export const startStudentConversation = (staff: string) => rpc<string>("start_student_admin_conversation", { _staff: staff });
 export const fetchGuardianContacts = (student: string) => rpc<Contact[]>("guardian_contacts", { _student: student }).then((r) => (r ?? []).filter((c) => c.kind === "admin"));
