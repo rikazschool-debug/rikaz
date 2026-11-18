@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, BackHandler, I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, BackHandler, I18nManager, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold, useFonts } from "@expo-google-fonts/cairo";
-import { Home, UserRound, type LucideIcon } from "lucide-react-native";
+import { CalendarDays, Home, LayoutGrid, MessagesSquare, UserRound, type LucideIcon } from "lucide-react-native";
+import { BottomBar, type BottomItem } from "./components/BottomBar";
+import { StudentHome, type StudentTab } from "./screens/student/StudentHome";
+import { StudentComm } from "./screens/student/StudentComm";
+import { StudentSchedule } from "./screens/student/StudentSchedule";
+import { StudentMore } from "./screens/student/StudentMore";
+import { StudentAccount } from "./screens/student/StudentAccount";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { LoginScreen } from "./screens/LoginScreen";
 import { ChooseContextScreen } from "./screens/ChooseContextScreen";
@@ -11,6 +17,12 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { AccountScreen } from "./screens/AccountScreen";
 import { RikazLogo } from "./components/RikazLogo";
 import { COLORS, FONT_SCALE, FONTS, SPACING } from "./theme/tokens";
+
+// نسخة المتصفح تتبع اتجاه التطبيق نفسه حتى تطابق المعاينة الجوال
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  document.documentElement.dir = "rtl";
+  document.documentElement.lang = "ar";
+}
 
 // الواجهة عربية بالكامل: اتجاه من اليمين لليسار (يسري بعد أول إعادة فتح للتطبيق إن لم يكن مفعّلًا)
 if (!I18nManager.isRTL) {
@@ -57,6 +69,35 @@ const TabBar: React.FC<{ tab: Tab; onChange: (t: Tab) => void }> = ({ tab, onCha
   );
 };
 
+// الترتيب يبدأ من اليمين: حسابي، التواصل، الرئيسية (المنتصف)، الجدول، المزيد
+const STUDENT_TABS: BottomItem<StudentTab>[] = [
+  { key: "account", label: "حسابي", icon: UserRound },
+  { key: "comm", label: "التواصل", icon: MessagesSquare },
+  { key: "home", label: "الرئيسية", icon: Home, center: true },
+  { key: "schedule", label: "الجدول", icon: CalendarDays },
+  { key: "more", label: "المزيد", icon: LayoutGrid },
+];
+
+const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
+  const [tab, setTab] = useState<StudentTab>("home");
+  useEffect(() => {
+    if (tab === "home") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setTab("home");
+      return true;
+    });
+    return () => sub.remove();
+  }, [tab]);
+  return (
+    <View style={styles.flex}>
+      <View style={styles.flex}>
+        {tab === "home" ? <StudentHome onTab={setTab} /> : tab === "comm" ? <StudentComm /> : tab === "schedule" ? <StudentSchedule /> : tab === "more" ? <StudentMore /> : <StudentAccount onSwitch={onSwitch} />}
+      </View>
+      <BottomBar items={STUDENT_TABS} value={tab} onChange={setTab} />
+    </View>
+  );
+};
+
 const Root: React.FC = () => {
   const { status, mustChoose, active, contextsLoading, contextsError, contexts } = useAuth();
   const [tab, setTab] = useState<Tab>("home");
@@ -85,6 +126,8 @@ const Root: React.FC = () => {
   if (contextsLoading && contexts.length === 0) return <Splash />;
   if (mustChoose || !active || contextsError) return <ChooseContextScreen />;
   if (picker) return <ChooseContextScreen onClose={() => setPicker(false)} />;
+
+  if (active.role === "student") return <StudentShell onSwitch={() => setPicker(true)} />;
 
   return (
     <View style={styles.flex}>

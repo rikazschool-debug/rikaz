@@ -58,13 +58,13 @@ export const WelcomeScreen: React.FC<{ onSelect: (entry: AccountEntry) => void }
                 </AppText>
               </View>
             </FadeIn>
-            <AppText variant="title" color={LOGIN_COLORS.foreground} align="right" style={styles.greeting}>
+            <AppText variant="title" color={LOGIN_COLORS.foreground} style={styles.greeting}>
               أهلاً بك في
             </AppText>
-            <AppText weight="extrabold" color={LOGIN_COLORS.primary} align="right" style={styles.name}>
+            <AppText weight="extrabold" color={LOGIN_COLORS.primary} style={styles.name}>
               ركاز
             </AppText>
-            <AppText variant="caption" color={LOGIN_COLORS.foreground} align="right">
+            <AppText variant="caption" color={LOGIN_COLORS.foreground}>
               منصتك لإثراء التعليم الذكي
             </AppText>
             <View style={styles.accentLine} />
@@ -97,10 +97,10 @@ export const WelcomeScreen: React.FC<{ onSelect: (entry: AccountEntry) => void }
                       <Icon size={22} color={LOGIN_COLORS.primary} />
                     </View>
                     <View style={styles.cardText}>
-                      <AppText variant="bodyStrong" color={LOGIN_COLORS.foreground} align="right">
+                      <AppText variant="bodyStrong" color={LOGIN_COLORS.foreground}>
                         {r.title}
                       </AppText>
-                      <AppText variant="micro" color={LOGIN_COLORS.mutedForeground} align="right">
+                      <AppText variant="micro" color={LOGIN_COLORS.mutedForeground}>
                         {r.hint}
                       </AppText>
                     </View>
@@ -146,10 +146,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: LOGIN_COLORS.surface },
   hero: { width: "100%", overflow: "hidden", backgroundColor: COLORS.primaryTint },
   photo: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
-  heroText: { position: "absolute", top: 0, right: 0, width: "58%", paddingRight: SPACING.xl, alignItems: "flex-end", gap: SPACING.xxs },
+  heroText: { position: "absolute", top: 0, start: 0, width: "58%", paddingStart: SPACING.xl, alignItems: "flex-start", gap: SPACING.xxs },
   mark: { alignSelf: "center", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.lg },
   logoTile: { width: 74, height: 74, borderRadius: RADIUS.xl, backgroundColor: LOGIN_COLORS.surface, alignItems: "center", justifyContent: "center", ...SHADOWS.raised },
-  chip: { flexDirection: "row-reverse", alignItems: "center", gap: SPACING.xs, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xxs + 1, borderRadius: RADIUS.full, backgroundColor: "rgba(255,255,255,0.92)", borderWidth: 1, borderColor: LOGIN_COLORS.border },
+  chip: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xxs + 1, borderRadius: RADIUS.full, backgroundColor: "rgba(255,255,255,0.92)", borderWidth: 1, borderColor: LOGIN_COLORS.border },
   chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.accent },
   greeting: { marginTop: SPACING.xs },
   name: { fontSize: 56, lineHeight: 76 },
@@ -167,11 +167,11 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: LOGIN_COLORS.border },
-  sheetHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cards: { gap: SPACING.md },
   card: {
     minHeight: TOUCH.min + SPACING.xl,
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
     gap: SPACING.md,
     padding: SPACING.md,
@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
   cardIcon: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: LOGIN_COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
   cardText: { flex: 1, gap: SPACING.xxs },
   chev: { width: 32, height: 32, borderRadius: 16, backgroundColor: LOGIN_COLORS.surfaceLow, alignItems: "center", justifyContent: "center" },
-  features: { flexDirection: "row-reverse", justifyContent: "space-between", paddingHorizontal: SPACING.xs },
-  feature: { flexDirection: "row-reverse", alignItems: "center", gap: SPACING.xs },
+  features: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: SPACING.xs },
+  feature: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
   footer: { alignItems: "center", gap: SPACING.xs, marginTop: SPACING.xs },
   footerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.md },
   footerLine: { width: 28, height: 2, borderRadius: 1, backgroundColor: COLORS.accent },

@@ -7,9 +7,9 @@ import { LOGIN_COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 export type AccountEntry = "student" | "guardian" | "staff";
 
 const OPTIONS: { key: AccountEntry; label: string; icon: LucideIcon }[] = [
-  { key: "staff", label: "الكادر التعليمي", icon: ClipboardList },
-  { key: "guardian", label: "ولي الأمر", icon: UserRound },
   { key: "student", label: "الطالب", icon: GraduationCap },
+  { key: "guardian", label: "ولي الأمر", icon: UserRound },
+  { key: "staff", label: "الكادر التعليمي", icon: ClipboardList },
 ];
 
 export const ENTRY_CONTENT: Record<AccountEntry, { eyebrow: string; title: string; description: string }> = {

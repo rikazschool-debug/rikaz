@@ -47,16 +47,16 @@ const SignInForm: React.FC<{ entry: AccountEntry; onChange: (e: AccountEntry) =>
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="رجوع إلى صفحة الترحيب" hitSlop={TOUCH.hitSlop} style={({ pressed }) => [styles.back, pressed && styles.backPressed]}>
-            <ChevronRight size={20} color={LOGIN_COLORS.foreground} />
-          </Pressable>
           <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="ركاز">
+            <RikazLogo size={34} />
             <View style={styles.brandText}>
               <AppText variant="title" weight="extrabold" color={LOGIN_COLORS.primary} style={styles.brandName}>ركاز</AppText>
               <AppText variant="micro" weight="bold" color={LOGIN_COLORS.primary} style={styles.brandLatin}>RIKAZ</AppText>
             </View>
-            <RikazLogo size={34} />
           </View>
+          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="رجوع إلى صفحة الترحيب" hitSlop={TOUCH.hitSlop} style={({ pressed }) => [styles.back, pressed && styles.backPressed]}>
+            <ChevronRight size={20} color={LOGIN_COLORS.foreground} />
+          </Pressable>
         </View>
 
         <AccountEntrySelector value={entry} onChange={onChange} />
@@ -67,8 +67,8 @@ const SignInForm: React.FC<{ entry: AccountEntry; onChange: (e: AccountEntry) =>
               <AppText variant="label" weight="bold" color={LOGIN_COLORS.primary}>{meta.eyebrow}</AppText>
               <View style={styles.eyebrowLine} />
             </View>
-            <AppText weight="extrabold" color={LOGIN_COLORS.foreground} align="right" style={styles.title}>{meta.title}</AppText>
-            <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} align="right">{meta.description}</AppText>
+            <AppText weight="extrabold" color={LOGIN_COLORS.foreground} style={styles.title}>{meta.title}</AppText>
+            <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>{meta.description}</AppText>
           </View>
 
           {!showLoginForms ? (
@@ -112,7 +112,7 @@ const SignInForm: React.FC<{ entry: AccountEntry; onChange: (e: AccountEntry) =>
 
 /** خطوات دخول ولي الأمر والكادر: رقم الهوية ثم رمز التحقق. */
 const Steps: React.FC<{ step: 1 | 2 }> = ({ step }) => (
-  <View style={[styles.steps, styles.stepsRtl]} accessible accessibilityRole="progressbar" accessibilityLabel={`الخطوة ${step} من 2`}>
+  <View style={styles.steps} accessible accessibilityRole="progressbar" accessibilityLabel={`الخطوة ${step} من 2`}>
     {(["بيانات الحساب", "التحقق"] as const).map((label, i) => {
       const n = i + 1;
       const done = n < step;
@@ -351,16 +351,15 @@ const styles = StyleSheet.create({
   back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: LOGIN_COLORS.border, alignItems: "center", justifyContent: "center", backgroundColor: LOGIN_COLORS.surface },
   backPressed: { backgroundColor: LOGIN_COLORS.surfaceLow },
   brand: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-  brandText: { alignItems: "flex-end" },
+  brandText: { alignItems: "flex-start" },
   brandName: { lineHeight: 30 },
   brandLatin: { fontSize: 9, lineHeight: 11, letterSpacing: 1 },
-  intro: { gap: SPACING.xs, alignItems: "flex-end" },
+  intro: { gap: SPACING.xs, alignItems: "flex-start" },
   eyebrow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   eyebrowLine: { width: 18, height: 3, borderRadius: 2, backgroundColor: COLORS.accent },
   title: { fontSize: 26, lineHeight: 40 },
   secure: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.xs },
   help: { marginTop: "auto", paddingTop: SPACING.lg, borderTopWidth: 1, borderTopColor: LOGIN_COLORS.border },
-  stepsRtl: { flexDirection: "row-reverse" },
   steps: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: SPACING.md },
   step: { alignItems: "center", gap: SPACING.xs },
   stepDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: LOGIN_COLORS.surfaceLow, borderWidth: 1, borderColor: LOGIN_COLORS.border },

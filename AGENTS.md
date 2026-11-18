@@ -8,3 +8,4 @@
 - Home sections per role live in `src/lib/sections.ts`, mirroring the platform's NAV_BY_ROLE and permission gating; keep it in sync with the platform instead of inventing role menus.
 - Shared motion rules live in `src/lib/motion.ts` and `useReducedMotion`; every animation or press scale must go through them so the system "reduce motion" setting disables it.
 - Sign-in starts on `WelcomeScreen` (role cards); choosing a role opens the tabbed sign-in form and back returns to welcome — keeps the approved login design flow in one place.
+- Students get a five-tab shell (`StudentShell` in App.tsx, screens in src/screens/student/); sections without an in-app screen open on the web platform rather than showing placeholder data.
