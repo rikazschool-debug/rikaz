@@ -1,6 +1,6 @@
 import React from "react";
-import { Linking, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { ChevronLeft, ExternalLink, type LucideIcon } from "lucide-react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { ChevronLeft, ChevronRight, ExternalLink, type LucideIcon } from "lucide-react-native";
 import { AppText } from "./ui";
 import { RikazLogo } from "./RikazLogo";
 import { useReducedMotion } from "../hooks/useReducedMotion";
@@ -64,10 +64,10 @@ export const IconTileBox: React.FC<{ icon: LucideIcon; size?: number; tone?: "pr
 );
 
 /** بطاقة مهمة سريعة (ثلاث في الصف). */
-export const QuickTile: React.FC<{ icon: LucideIcon; label: string; hint?: string; onPress: () => void }> = ({ icon, label, hint, onPress }) => {
+export const QuickTile: React.FC<{ icon: LucideIcon; label: string; hint?: string; onPress: () => void; web?: boolean }> = ({ icon, label, hint, onPress, web }) => {
   const reduced = useReducedMotion();
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={label} accessibilityHint={WEB_HINT} style={({ pressed }) => [styles.quick, pressed && styles.pressedTile, { transform: [{ scale: pressScale(pressed, reduced) }] }]}>
+    <Pressable onPress={onPress} accessibilityRole={web ? "link" : "button"} accessibilityLabel={label} accessibilityHint={web ? WEB_HINT : undefined} style={({ pressed }) => [styles.quick, pressed && styles.pressedTile, { transform: [{ scale: pressScale(pressed, reduced) }] }]}>
       <IconTileBox icon={icon} />
       <AppText variant="label" weight="bold" align="center" numberOfLines={2}>{label}</AppText>
       {hint ? <AppText variant="micro" color={COLORS.mutedForeground} align="center" numberOfLines={1}>{hint}</AppText> : null}
@@ -140,4 +140,60 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 18, paddingHorizontal: SPACING.lg },
   sectionTitle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: SPACING.xs },
   web: { flexDirection: "row", alignItems: "center", gap: SPACING.md, backgroundColor: COLORS.primary, borderRadius: 18, padding: SPACING.lg, ...SHADOWS.raised },
+});
+
+/** حالات التحميل/الخطأ/الفراغ الموحدة لشاشات بيانات الطالب. */
+export const DataState: React.FC<{ loading?: boolean; error?: boolean; missing?: boolean; empty?: boolean; emptyTitle?: string; emptyHint?: string; onRetry?: () => void; children?: React.ReactNode }> = ({ loading, error, missing, empty, emptyTitle, emptyHint, onRetry, children }) => {
+  if (loading) {
+    return (
+      <Panel style={stateStyles.box}>
+        <ActivityIndicator color={COLORS.primary} accessibilityLabel="جارٍ التحميل" />
+        <AppText variant="caption" color={COLORS.mutedForeground} align="center">جارٍ تحميل بياناتك…</AppText>
+      </Panel>
+    );
+  }
+  if (error || missing || empty) {
+    const title = error ? "تعذّر تحميل البيانات" : missing ? "لا يوجد ملف طالب مرتبط بحسابك في هذه المدرسة" : emptyTitle ?? "لا توجد بيانات بعد";
+    const hint = error ? "تحقق من اتصالك بالإنترنت ثم أعد المحاولة." : missing ? "تواصل مع إدارة المدرسة لربط حسابك بملفك." : emptyHint;
+    return (
+      <Panel style={stateStyles.box}>
+        <AppText variant="bodyStrong" align="center" accessibilityRole={error ? "alert" : undefined}>{title}</AppText>
+        {hint ? <AppText variant="caption" color={COLORS.mutedForeground} align="center">{hint}</AppText> : null}
+        {error && onRetry ? (
+          <Pressable onPress={onRetry} accessibilityRole="button" style={({ pressed }) => [stateStyles.retry, pressed && { opacity: 0.85 }]}>
+            <AppText variant="label" weight="bold" color={COLORS.primaryForeground}>إعادة المحاولة</AppText>
+          </Pressable>
+        ) : null}
+      </Panel>
+    );
+  }
+  return <>{children}</>;
+};
+
+/** رأس شاشة فرعية مع زر رجوع. */
+export const BackHeader: React.FC<{ title: string; eyebrow?: string; onBack: () => void }> = ({ title, eyebrow, onBack }) => (
+  <ScreenTitle eyebrow={eyebrow} title={title} action={<IconButton icon={ChevronRight} label="رجوع" onPress={onBack} />} />
+);
+
+/** شارة حالة صغيرة. */
+export const Pill: React.FC<{ label: string; tone?: "primary" | "accent" | "danger" | "muted" | "success" }> = ({ label, tone = "muted" }) => {
+  const t = PILL[tone];
+  return (
+    <View style={[stateStyles.pill, { backgroundColor: t.bg }]}>
+      <AppText variant="micro" weight="bold" color={t.fg} numberOfLines={1}>{label}</AppText>
+    </View>
+  );
+};
+const PILL = {
+  primary: { bg: COLORS.primaryTint, fg: COLORS.primary },
+  accent: { bg: COLORS.warningTint, fg: "#8a5a12" },
+  danger: { bg: COLORS.destructiveTint, fg: COLORS.destructive },
+  success: { bg: COLORS.successTint, fg: COLORS.success },
+  muted: { bg: COLORS.muted, fg: COLORS.mutedForeground },
+};
+
+const stateStyles = StyleSheet.create({
+  box: { paddingVertical: SPACING.xl, gap: SPACING.sm, alignItems: "center" },
+  retry: { marginTop: SPACING.sm, backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: SPACING.lg, minHeight: 44, justifyContent: "center" },
+  pill: { borderRadius: 999, paddingHorizontal: SPACING.sm + 2, paddingVertical: 2, alignSelf: "flex-start" },
 });

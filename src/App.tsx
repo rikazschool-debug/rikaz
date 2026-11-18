@@ -5,7 +5,10 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold, useFonts } from "@expo-google-fonts/cairo";
 import { CalendarDays, Home, LayoutGrid, MessagesSquare, UserRound, type LucideIcon } from "lucide-react-native";
 import { BottomBar, type BottomItem } from "./components/BottomBar";
-import { StudentHome, type StudentTab } from "./screens/student/StudentHome";
+import { StudentHome, type StudentSub, type StudentTab } from "./screens/student/StudentHome";
+import { StudentHomework } from "./screens/student/StudentHomework";
+import { StudentResults } from "./screens/student/StudentResults";
+import { StudentAttendance } from "./screens/student/StudentAttendance";
 import { StudentComm } from "./screens/student/StudentComm";
 import { StudentSchedule } from "./screens/student/StudentSchedule";
 import { StudentMore } from "./screens/student/StudentMore";
@@ -79,19 +82,33 @@ const STUDENT_TABS: BottomItem<StudentTab>[] = [
 ];
 
 const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
-  const [tab, setTab] = useState<StudentTab>("home");
+  const [tab, setTabRaw] = useState<StudentTab>("home");
+  const [sub, setSub] = useState<StudentSub | null>(null);
+  const setTab = (t: StudentTab) => {
+    setSub(null);
+    setTabRaw(t);
+  };
   useEffect(() => {
-    if (tab === "home") return;
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      setTab("home");
+    if (tab === "home" && !sub) return;
+    const h = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (sub) setSub(null);
+      else setTabRaw("home");
       return true;
     });
-    return () => sub.remove();
-  }, [tab]);
+    return () => h.remove();
+  }, [tab, sub]);
+  const back = () => setSub(null);
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        {tab === "home" ? <StudentHome onTab={setTab} /> : tab === "comm" ? <StudentComm /> : tab === "schedule" ? <StudentSchedule /> : tab === "more" ? <StudentMore /> : <StudentAccount onSwitch={onSwitch} />}
+        {sub === "homework" ? <StudentHomework onBack={back} />
+          : sub === "results" ? <StudentResults onBack={back} />
+          : sub === "attendance" ? <StudentAttendance onBack={back} />
+          : tab === "home" ? <StudentHome onTab={setTab} onOpen={setSub} />
+          : tab === "comm" ? <StudentComm />
+          : tab === "schedule" ? <StudentSchedule />
+          : tab === "more" ? <StudentMore onOpen={setSub} onTab={setTab} />
+          : <StudentAccount onSwitch={onSwitch} />}
       </View>
       <BottomBar items={STUDENT_TABS} value={tab} onChange={setTab} />
     </View>

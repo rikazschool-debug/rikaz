@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { Bell, CalendarDays, ClipboardList, DoorOpen, MessagesSquare, PartyPopper, School, type LucideIcon } from "lucide-react-native";
+import { Award, Bell, CalendarCheck, CalendarDays, ClipboardList, DoorOpen, MessagesSquare, PartyPopper, School, type LucideIcon } from "lucide-react-native";
 import { AppText, Button } from "../../components/ui";
 import { FadeIn } from "../../components/FadeIn";
 import { IconButton, IconTileBox, openSection, Panel, QuickTile, SectionTitle, SegmentTabs, studentStyles } from "../../components/StudentKit";
@@ -14,20 +14,25 @@ import { COLORS, SPACING } from "../../theme/tokens";
 
 type Tab = "today" | "homework" | "events";
 export type StudentTab = "account" | "comm" | "home" | "schedule" | "more";
+/** شاشات بيانات الطالب داخل التطبيق. */
+export type StudentSub = "homework" | "results" | "attendance";
+type Go = { tab?: StudentTab; sub?: StudentSub };
 
-const QUICK: { key: SectionKey; label: string; hint: string; icon: LucideIcon; tab?: StudentTab }[] = [
-  { key: "homework", label: "الواجبات", hint: "مذكرة الواجبات", icon: ClipboardList },
-  { key: "schedule", label: "جدولي", hint: "حصص الأسبوع", icon: CalendarDays, tab: "schedule" },
-  { key: "classrooms", label: "الفصول الرقمية", hint: "مقرراتك", icon: School },
-  { key: "pickup", label: "الاستئذان", hint: "الخروج المبكر", icon: DoorOpen },
-  { key: "communication", label: "المحادثات", hint: "معلموك", icon: MessagesSquare, tab: "comm" },
-  { key: "events", label: "الفعاليات", hint: "أنشطة المدرسة", icon: PartyPopper },
+const QUICK: { key: string; label: string; hint: string; icon: LucideIcon; go?: Go; web?: SectionKey }[] = [
+  { key: "homework", label: "الواجبات", hint: "واجباتك ومواعيدها", icon: ClipboardList, go: { sub: "homework" } },
+  { key: "schedule", label: "جدولي", hint: "حصص الأسبوع", icon: CalendarDays, go: { tab: "schedule" } },
+  { key: "results", label: "النتائج", hint: "درجاتك المنشورة", icon: Award, go: { sub: "results" } },
+  { key: "attendance", label: "الحضور", hint: "سجل المواظبة", icon: CalendarCheck, go: { sub: "attendance" } },
+  { key: "communication", label: "المحادثات", hint: "معلموك", icon: MessagesSquare, go: { tab: "comm" } },
+  { key: "classrooms", label: "الفصول الرقمية", hint: "مقرراتك", icon: School, web: "classrooms" },
+  { key: "pickup", label: "الاستئذان", hint: "الخروج المبكر", icon: DoorOpen, web: "pickup" },
+  { key: "events", label: "الفعاليات", hint: "أنشطة المدرسة", icon: PartyPopper, web: "events" },
 ];
 
-const TAB_CONTENT: Record<Tab, { icon: LucideIcon; title: string; body: string; action: string; key: SectionKey }> = {
-  today: { icon: CalendarDays, title: "حصص اليوم", body: "تابع حصصك ومواعيدها ومعلميك لهذا اليوم.", action: "فتح جدولي", key: "schedule" },
-  homework: { icon: ClipboardList, title: "مذكرة الواجبات", body: "اطّلع على واجباتك ومواعيد تسليمها أولًا بأول.", action: "فتح الواجبات", key: "homework" },
-  events: { icon: PartyPopper, title: "الأنشطة والفعاليات", body: "تعرّف على فعاليات مدرستك وأنشطتها القادمة.", action: "فتح الفعاليات", key: "events" },
+const TAB_CONTENT: Record<Tab, { icon: LucideIcon; title: string; body: string; action: string; go?: Go; web?: SectionKey }> = {
+  today: { icon: CalendarDays, title: "حصص اليوم", body: "حصصك ومواعيدها ومعلموها كما نشرتها المدرسة.", action: "فتح جدولي", go: { tab: "schedule" } },
+  homework: { icon: ClipboardList, title: "مذكرة الواجبات", body: "واجباتك واختباراتك ومواعيد تسليمها وحالتها.", action: "فتح الواجبات", go: { sub: "homework" } },
+  events: { icon: PartyPopper, title: "الأنشطة والفعاليات", body: "تعرّف على فعاليات مدرستك وأنشطتها القادمة.", action: "فتح الفعاليات", web: "events" },
 };
 
 function greeting(): string {
@@ -42,7 +47,8 @@ function todayLabel(): string {
   }
 }
 
-export const StudentHome: React.FC<{ onTab: (t: StudentTab) => void }> = ({ onTab }) => {
+export const StudentHome: React.FC<{ onTab: (t: StudentTab) => void; onOpen: (s: StudentSub) => void }> = ({ onTab, onOpen }) => {
+  const go = (g?: Go, web?: SectionKey) => (g?.sub ? onOpen(g.sub) : g?.tab ? onTab(g.tab) : web ? openSection(web) : undefined);
   const insets = useSafeAreaInsets();
   const { fullName, active } = useAuth();
   const { profile } = useStudentProfile();
@@ -84,7 +90,7 @@ export const StudentHome: React.FC<{ onTab: (t: StudentTab) => void }> = ({ onTa
       <SectionTitle title="مهام سريعة" />
       <View style={styles.grid}>
         {QUICK.map((q) => (
-          <QuickTile key={q.key} icon={q.icon} label={q.label} hint={q.hint} onPress={() => (q.tab ? onTab(q.tab) : openSection(q.key))} />
+          <QuickTile key={q.key} icon={q.icon} label={q.label} hint={q.hint} web={!!q.web} onPress={() => go(q.go, q.web)} />
         ))}
       </View>
 
@@ -98,7 +104,7 @@ export const StudentHome: React.FC<{ onTab: (t: StudentTab) => void }> = ({ onTa
               <AppText variant="caption" color={COLORS.mutedForeground}>{content.body}</AppText>
             </View>
           </View>
-          <Button title={content.action} variant="secondary" onPress={() => (content.key === "schedule" ? onTab("schedule") : openSection(content.key))} />
+          <Button title={content.action} variant="secondary" onPress={() => go(content.go, content.web)} />
         </Panel>
       </FadeIn>
     </ScrollView>
