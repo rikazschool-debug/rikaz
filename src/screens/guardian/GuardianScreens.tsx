@@ -24,6 +24,8 @@ import { ConversationList, NewChat, Thread } from "../shared/Conversations";
 import { NotificationsList } from "../shared/Notifications";
 import { Events } from "../shared/Events";
 import { GuardianPickup } from "../shared/Pickup";
+import { GuardianEvaluation } from "./GuardianEvaluation";
+import { EduRecords } from "../teacher/TeacherSections";
 import { ChildFinance, Circulars, FamilyRequests, Visits } from "./GuardianExtras";
 import { COLORS, RADIUS, SPACING } from "../../theme/tokens";
 
@@ -37,7 +39,7 @@ const TABS: BottomItem<GuardianTab>[] = [
 ];
 
 /** أقسام داخل التطبيق؛ «ابن» = تخص الابن المختار. */
-type Sub = "attendance" | "schedule" | "homework" | "classrooms" | "finance" | "pickup" | "visits" | "requests" | "events" | "thread" | "newchat";
+type Sub = "evaluation" | "remedial" | "attendance" | "schedule" | "homework" | "classrooms" | "finance" | "pickup" | "visits" | "requests" | "events" | "thread" | "newchat";
 const SUB: Record<Exclude<Sub, "thread" | "newchat">, { label: string; hint: string; icon: LucideIcon; child?: boolean }> = {
   attendance: { label: "الحضور والغياب", hint: "تقويم المواظبة", icon: CalendarCheck, child: true },
   schedule: { label: "الجدول", hint: "حصص اليوم والأسبوع", icon: CalendarDays, child: true },
@@ -48,12 +50,14 @@ const SUB: Record<Exclude<Sub, "thread" | "newchat">, { label: string; hint: str
   visits: { label: "الزيارات", hint: "مواعيد المدرسة", icon: CalendarDays },
   requests: { label: "طلبات ولي الأمر", hint: "طلباتك للمدرسة", icon: ClipboardList },
   events: { label: "الأنشطة والفعاليات", hint: "الرحلات والموافقات", icon: PartyPopper },
+  evaluation: { label: "تقييم المعلمين", hint: "قيّم معلمي ابنك", icon: Award },
+  remedial: { label: "الخطط العلاجية", hint: "خطط دعم أبنائك", icon: BookOpen },
 };
 const QUICK: (keyof typeof SUB)[] = ["attendance", "homework", "schedule", "pickup", "visits", "requests"];
 const KID_ROWS: (keyof typeof SUB)[] = ["attendance", "schedule", "homework", "classrooms", "finance"];
 const MORE: { title: string; keys: (keyof typeof SUB)[] }[] = [
   { title: "اليوم الدراسي", keys: ["attendance", "schedule", "homework", "classrooms", "pickup"] },
-  { title: "المتابعة والطلبات", keys: ["visits", "requests", "finance", "events"] },
+  { title: "المتابعة والطلبات", keys: ["visits", "requests", "finance", "events", "evaluation", "remedial"] },
 ];
 
 /** ولي الأمر: أبناؤه الموثّقون في المدرسة النشطة كما تعيدهم المنصة؛ لا أسماء أو أرقام مصطنعة. */
@@ -125,6 +129,8 @@ export function GuardianShell({ onSwitch }: { onSwitch: () => void }) {
   else if (sub === "visits") screen = <Visits kids={kids} onBack={back} />;
   else if (sub === "requests") screen = <FamilyRequests kids={kids} onBack={back} />;
   else if (sub === "events") screen = <Events onBack={back} />;
+  else if (sub === "evaluation") screen = <GuardianEvaluation onBack={back} />;
+  else if (sub === "remedial") screen = <EduRecords kind="student_plan" eyebrow="الخطط المشاركة معك" onBack={back} />;
 
   const go = (k: keyof typeof SUB) => setSub(k);
   const tile = (k: keyof typeof SUB) => {
@@ -188,10 +194,10 @@ export function GuardianShell({ onSwitch }: { onSwitch: () => void }) {
                     <Panel>{pending.map((k, i) => <ListRow key={k.student_id} first={i === 0} icon={Users} title={k.student ?? "بانتظار توثيق العلاقة"} subtitle="ستظهر البيانات بعد توثيق المدرسة للعلاقة" />)}</Panel>
                   </>
                 ) : null}
-                <SectionTitle title="على منصة ركاز" caption="تفتح في المنصة" />
+                <SectionTitle title="المتابعة والتقييم" />
                 <Panel>
-                  <ListRow first icon={Award} title="نظام التقييم الشامل" web onPress={() => openSection("evaluation")} />
-                  <ListRow icon={BookOpen} title="الخطط العلاجية" web onPress={() => openSection("remedial_plans")} />
+                  <ListRow first icon={Award} title="تقييم المعلمين" onPress={() => go("evaluation")} />
+                  <ListRow icon={BookOpen} title="الخطط العلاجية" onPress={() => go("remedial")} />
                 </Panel>
               </>
             ) : null}
@@ -213,11 +219,6 @@ export function GuardianShell({ onSwitch }: { onSwitch: () => void }) {
                     <View style={styles.grid}>{g.keys.map(tile)}</View>
                   </View>
                 ))}
-                <SectionTitle title="على منصة ركاز" caption="تفتح في المنصة" />
-                <Panel>
-                  <ListRow first icon={Award} title="نظام التقييم الشامل" web onPress={() => openSection("evaluation")} />
-                  <ListRow icon={BookOpen} title="الخطط العلاجية" web onPress={() => openSection("remedial_plans")} />
-                </Panel>
               </>
             ) : null}
 

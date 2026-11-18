@@ -15,7 +15,7 @@ import { COLORS, FONTS, SPACING } from "../../theme/tokens";
 type Role = "student" | "guardian";
 
 /** قائمة المحادثات (الوارد/الأرشيف) مع زر محادثة جديدة. */
-export const ConversationList: React.FC<{ role: Role; onOpen: (c: Conversation) => void; onNew: () => void }> = ({ role, onOpen, onNew }) => {
+export const ConversationList: React.FC<{ role: Role | "teacher"; onOpen: (c: Conversation) => void; onNew?: () => void }> = ({ role, onOpen, onNew }) => {
   const { active } = useAuth();
   const [box, setBox] = useState<"inbox" | "archive">("inbox");
   const q = useLoad(() => fetchConversations(active?.schoolId ?? ""), [active?.schoolId]);
@@ -24,9 +24,9 @@ export const ConversationList: React.FC<{ role: Role; onOpen: (c: Conversation) 
     <View style={styles.gap}>
       <View style={styles.row}>
         <View style={styles.flex}><Chips label="الصندوق" value={box} onChange={setBox} items={[{ key: "inbox", label: role === "student" ? "رسائلي" : "الوارد" }, { key: "archive", label: "الأرشيف" }]} /></View>
-        <Pressable onPress={onNew} accessibilityRole="button" accessibilityLabel="محادثة جديدة" style={styles.plus}><Plus size={20} color={COLORS.primaryForeground} /></Pressable>
+        {onNew ? <Pressable onPress={onNew} accessibilityRole="button" accessibilityLabel="محادثة جديدة" style={styles.plus}><Plus size={20} color={COLORS.primaryForeground} /></Pressable> : null}
       </View>
-      <DataState loading={q.loading} error={q.error} empty={!rows.length} emptyTitle={box === "archive" ? "الأرشيف فارغ" : "لا توجد محادثات"} emptyHint={box === "inbox" ? "ابدأ محادثة جديدة مع إدارة المدرسة من زر +" : undefined} onRetry={q.reload}>
+      <DataState loading={q.loading} error={q.error} empty={!rows.length} emptyTitle={box === "archive" ? "الأرشيف فارغ" : "لا توجد محادثات"} emptyHint={box === "inbox" && onNew ? "ابدأ محادثة جديدة مع إدارة المدرسة من زر +" : undefined} onRetry={q.reload}>
         <Panel>
           {rows.map((c, i) => (
             <Pressable key={c.id} onPress={() => onOpen(c)} accessibilityRole="button" accessibilityLabel={`${c.title ?? ""}${c.unread ? `، ${c.unread} غير مقروءة` : ""}`} style={({ pressed }) => [styles.conv, i > 0 && styles.border, pressed && { backgroundColor: COLORS.muted }]}>

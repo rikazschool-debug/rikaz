@@ -44,7 +44,7 @@ export async function fetchGuardianLinks(schoolId: string): Promise<{ student_id
 export const startFamilyConversation = (student: string, guardian: string, staff: string) => rpc<string>("start_family_conversation", { _student: student, _guardian: guardian, _staff_user: staff });
 
 /** صندوق الوارد كما في المنصة: مجموعات المواد/الشعب داخل الفصل الرقمي، والطالب يرى محادثاته ومجموعاته فقط. */
-export function inbox(rows: Conversation[], role: "student" | "guardian", archive: boolean): Conversation[] {
+export function inbox(rows: Conversation[], role: string, archive: boolean): Conversation[] {
   return rows.filter((c) => {
     const arch = !!c.archived || c.status === "archived";
     if (archive !== arch) return false;

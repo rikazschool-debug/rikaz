@@ -14,6 +14,7 @@ import { StudentSchedule } from "./screens/student/StudentSchedule";
 import { StudentMore } from "./screens/student/StudentMore";
 import { StudentAccount } from "./screens/student/StudentAccount";
 import { GuardianShell } from "./screens/guardian/GuardianScreens";
+import { TeacherShell } from "./screens/teacher/TeacherShell";
 import { Classrooms } from "./screens/shared/Classrooms";
 import { StudentPickup } from "./screens/shared/Pickup";
 import { Events } from "./screens/shared/Events";
@@ -168,6 +169,7 @@ const Root: React.FC = () => {
 
   if (active.role === "student") return <StudentShell onSwitch={() => setPicker(true)} />;
   if (active.role === "guardian") return <GuardianShell key={active.key} onSwitch={() => setPicker(true)} />;
+  if (active.role === "teacher") return <TeacherShell key={active.key} onSwitch={() => setPicker(true)} />;
 
   return (
     <View style={styles.flex}>
