@@ -1,106 +1,108 @@
 import React, { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { BackHandler, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { BadgeCheck, Check, ExternalLink, Lock, MessageCircle, ShieldCheck, type LucideIcon } from "lucide-react-native";
+import { Check, ChevronRight, ExternalLink, Lock, LogIn, MessageSquareText, Send } from "lucide-react-native";
 import { RikazLogo } from "../components/RikazLogo";
-import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT, ENTRY_ICON } from "../components/AccountEntrySelector";
+import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT } from "../components/AccountEntrySelector";
+import { WelcomeScreen } from "./WelcomeScreen";
 import { OtpCodeInput } from "../components/OtpCodeInput";
 import { FadeIn } from "../components/FadeIn";
-import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
-import { COLORS, LOGIN_COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
+import { AppText, Button, LinkButton, Notice, TextField } from "../components/ui";
+import { COLORS, LOGIN_COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 import { CONFIG } from "../config";
 import { digitsOnly, isValidNationalId, RESEND_SECONDS } from "../lib/identity";
 import { loginErrorMessage, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
 
 export const LoginScreen: React.FC = () => {
+  const [entry, setEntry] = useState<AccountEntry | null>(null);
+
+  // زر الرجوع في أندرويد يعيد إلى صفحة الترحيب بدل إغلاق التطبيق.
+  useEffect(() => {
+    if (!entry) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setEntry(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [entry]);
+
+  if (!entry) return <WelcomeScreen onSelect={setEntry} />;
+  return <SignInForm entry={entry} onChange={setEntry} onBack={() => setEntry(null)} />;
+};
+
+const SignInForm: React.FC<{ entry: AccountEntry; onChange: (e: AccountEntry) => void; onBack: () => void }> = ({ entry, onChange, onBack }) => {
   const insets = useSafeAreaInsets();
-  const [entry, setEntry] = useState<AccountEntry>("student");
   const meta = ENTRY_CONTENT[entry];
   const showLoginForms = CONFIG.idLoginEnabled || CONFIG.loginDesignPreviewEnabled;
 
-  const EntryIcon = ENTRY_ICON[entry];
-
   return (
-    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: LOGIN_COLORS.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <StatusBar style="light" />
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <StatusBar style="dark" />
       <ScrollView
         style={styles.screen}
-        contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.xxxl }}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.xxl }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-          <View style={styles.heroRing} />
-          <View style={styles.heroRingSmall} />
-          <View style={styles.logoTile} accessible accessibilityRole="header" accessibilityLabel="ركاز، منظومة الإدارة التعليمية الذكية">
-            <RikazLogo size={52} />
+        <View style={styles.topBar}>
+          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="رجوع إلى صفحة الترحيب" hitSlop={TOUCH.hitSlop} style={({ pressed }) => [styles.back, pressed && styles.backPressed]}>
+            <ChevronRight size={20} color={LOGIN_COLORS.foreground} />
+          </Pressable>
+          <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="ركاز">
+            <View style={styles.brandText}>
+              <AppText variant="title" weight="extrabold" color={LOGIN_COLORS.primary} style={styles.brandName}>ركاز</AppText>
+              <AppText variant="micro" weight="bold" color={LOGIN_COLORS.primary} style={styles.brandLatin}>RIKAZ</AppText>
+            </View>
+            <RikazLogo size={34} />
           </View>
-          <AppText variant="display" color={LOGIN_COLORS.onPrimary} align="center">
-            ركاز
-          </AppText>
-          <AppText variant="body" color={COLORS.onPrimaryMuted} align="center" style={styles.heroDescription}>
-            منظومة الإدارة التعليمية الذكية
-          </AppText>
         </View>
 
-        <View style={styles.sheet}>
-          <Card raised style={styles.formCard}>
-            <View style={styles.sectionIntro}>
-              <AppText variant="title" color={LOGIN_COLORS.foreground}>
-                أهلاً بك
-              </AppText>
-              <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
-                اختر نوع حسابك لتسجيل الدخول
-              </AppText>
-            </View>
-            <AccountEntrySelector value={entry} onChange={setEntry} />
-            <Divider style={{ backgroundColor: LOGIN_COLORS.border }} />
-            <FadeIn key={entry} style={styles.gap}>
-            <View style={styles.formHead}>
-              <View style={styles.formHeadIcon}>
-                <EntryIcon size={22} color={LOGIN_COLORS.primary} />
-              </View>
-              <View style={styles.flex}>
-                <AppText variant="headline">{meta.title}</AppText>
-                <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
-                  {meta.description}
-                </AppText>
-              </View>
-            </View>
-            {!showLoginForms ? (
-              <IdLoginUnavailable />
-            ) : (
-              <>
-                {CONFIG.loginDesignPreviewEnabled && !CONFIG.idLoginEnabled ? (
-                  <Notice tone="warning" title="معاينة تصميم فقط">
-                    أزرار الدخول وإرسال الرمز معطّلة حتى اكتمال اختبار الدخول.
-                  </Notice>
-                ) : null}
-                {entry === "student" ? (
-                  CONFIG.studentLoginEnabled ? (
-                    <StudentForm key="student" />
-                  ) : (
-                    <Notice tone="warning" title="دخول الطالب متوقف مؤقتًا">
-                      يمكنك الدخول من منصة ركاز على الويب إلى حين تفعيله في التطبيق.
-                    </Notice>
-                  )
-                ) : (
-                  <CodeLogin key={entry} portal={entry} />
-                )}
-              </>
-            )}
-            </FadeIn>
-          </Card>
+        <AccountEntrySelector value={entry} onChange={onChange} />
 
-          <View style={styles.trustRow}>
-            <TrustItem icon={Lock} label="اتصال مشفّر" />
-            <TrustItem icon={ShieldCheck} label="رمز لمرة واحدة" />
-            <TrustItem icon={BadgeCheck} label="حسابات المدرسة فقط" />
+        <FadeIn key={entry} style={styles.gap}>
+          <View style={styles.intro}>
+            <View style={styles.eyebrow}>
+              <AppText variant="label" weight="bold" color={LOGIN_COLORS.primary}>{meta.eyebrow}</AppText>
+              <View style={styles.eyebrowLine} />
+            </View>
+            <AppText weight="extrabold" color={LOGIN_COLORS.foreground} align="right" style={styles.title}>{meta.title}</AppText>
+            <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} align="right">{meta.description}</AppText>
           </View>
-          <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} align="center">
-            تواجه صعوبة في الدخول؟ تواصل مع إدارة مدرستك.
+
+          {!showLoginForms ? (
+            <IdLoginUnavailable />
+          ) : (
+            <>
+              {CONFIG.loginDesignPreviewEnabled && !CONFIG.idLoginEnabled ? (
+                <Notice tone="warning" title="معاينة تصميم فقط">
+                  أزرار الدخول وإرسال الرمز معطّلة حتى اكتمال اختبار الدخول.
+                </Notice>
+              ) : null}
+              {entry === "student" ? (
+                CONFIG.studentLoginEnabled ? (
+                  <StudentForm key="student" />
+                ) : (
+                  <Notice tone="warning" title="دخول الطالب متوقف مؤقتًا">
+                    يمكنك الدخول من منصة ركاز على الويب إلى حين تفعيله في التطبيق.
+                  </Notice>
+                )
+              ) : (
+                <CodeLogin key={entry} portal={entry} />
+              )}
+            </>
+          )}
+          <View style={styles.secure}>
+            <Lock size={13} color={LOGIN_COLORS.mutedForeground} />
+            <AppText variant="micro" color={LOGIN_COLORS.mutedForeground}>بياناتك آمنة ومحمية</AppText>
+          </View>
+        </FadeIn>
+
+        <View style={styles.help}>
+          <AppText variant="micro" color={LOGIN_COLORS.mutedForeground} align="center">
+            تحتاج مساعدة؟{" "}
+            <AppText variant="micro" weight="bold" color={LOGIN_COLORS.primary}>تواصل مع إدارة مدرستك</AppText>
           </AppText>
         </View>
       </ScrollView>
@@ -108,19 +110,10 @@ export const LoginScreen: React.FC = () => {
   );
 };
 
-const TrustItem: React.FC<{ icon: LucideIcon; label: string }> = ({ icon: Icon, label }) => (
-  <View style={styles.trustItem}>
-    <Icon size={16} color={LOGIN_COLORS.primary} />
-    <AppText variant="micro" color={LOGIN_COLORS.mutedForeground} align="center">
-      {label}
-    </AppText>
-  </View>
-);
-
 /** خطوات دخول ولي الأمر والكادر: رقم الهوية ثم رمز التحقق. */
 const Steps: React.FC<{ step: 1 | 2 }> = ({ step }) => (
   <View style={[styles.steps, styles.stepsRtl]} accessible accessibilityRole="progressbar" accessibilityLabel={`الخطوة ${step} من 2`}>
-    {(["رقم الهوية", "رمز التحقق"] as const).map((label, i) => {
+    {(["بيانات الحساب", "التحقق"] as const).map((label, i) => {
       const n = i + 1;
       const done = n < step;
       const on = n === step;
@@ -195,7 +188,8 @@ const StudentForm: React.FC = () => {
       />
       <TextField
         ref={noRef}
-        label="رقم الطالب الداخلي — C‑Smart"
+        label="رقم الطالب — C‑Smart"
+        hint="رقم الطالب المسجل لدى مدرستك"
         value={no}
         onChangeText={(value) => setNo(value.slice(0, 40))}
         maxLength={40}
@@ -208,7 +202,8 @@ const StudentForm: React.FC = () => {
       />
       {msg ? <Notice tone="error">{msg}</Notice> : null}
       <Button
-        title="دخول"
+        title="تسجيل الدخول"
+        icon={LogIn}
         onPress={go}
         loading={busy}
         disabled={!CONFIG.studentLoginEnabled || !isValidNationalId(nid) || !no.trim()}
@@ -280,13 +275,13 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
           returnKeyType="send"
           onSubmitEditing={() => isValidNationalId(nid) && void send()}
           placeholder="1xxxxxxxxx"
-          hint="سيصلك رمز على واتساب في الجوال المسجل لدى المدرسة."
+          hint="سنرسل رمز التحقق عبر واتساب إلى جوالك المسجل."
           error={nid.length === 10 && !isValidNationalId(nid) ? "تحقق من رقم الهوية أو الإقامة" : null}
         />
         {msg ? <Notice tone="error">{msg}</Notice> : null}
         <Button
-          title="إرسال الرمز"
-          icon={MessageCircle}
+          title="إرسال رمز التحقق"
+          icon={Send}
           onPress={send}
           loading={busy === "send"}
           disabled={!CONFIG.idLoginEnabled || !isValidNationalId(nid)}
@@ -301,10 +296,10 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
       <Steps step={2} />
       <View style={styles.otpHead}>
         <View style={styles.otpIcon}>
-          <ShieldCheck size={26} color={LOGIN_COLORS.primary} />
+          <MessageSquareText size={26} color={LOGIN_COLORS.primary} />
         </View>
         <View style={styles.flex}>
-          <AppText variant="headline">أدخل رمز التحقق</AppText>
+          <AppText variant="title" weight="extrabold">التحقق من الرمز</AppText>
           <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
             أرسلنا رمزًا من 6 أرقام على واتساب إلى الجوال المنتهي بـ{" "}
             <AppText variant="caption" weight="bold" color={LOGIN_COLORS.foreground} style={styles.ltrInline}>
@@ -324,7 +319,8 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
       />
       {msg ? <Notice tone="error">{msg}</Notice> : null}
       <Button
-        title="تأكيد الدخول"
+        title="تأكيد الرمز"
+        icon={Check}
         onPress={() => void verify()}
         loading={busy === "verify"}
         disabled={!CONFIG.idLoginEnabled || code.length !== 6 || busy === "send"}
@@ -333,7 +329,7 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
       <View style={styles.otpActions}>
         <LinkButton title={left > 0 ? `إعادة الإرسال بعد ${left} ث` : "إعادة إرسال الرمز"} disabled={!CONFIG.idLoginEnabled || left > 0 || busy !== null} onPress={send} color={LOGIN_COLORS.secondary} />
         <LinkButton
-          title="تغيير رقم الهوية"
+          title="تعديل رقم الهوية"
           color={LOGIN_COLORS.secondary}
           disabled={busy !== null}
           onPress={() => {
@@ -349,28 +345,21 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: LOGIN_COLORS.background },
-  hero: {
-    backgroundColor: LOGIN_COLORS.primary,
-    paddingHorizontal: SPACING.xxl,
-    paddingBottom: SPACING.huge + SPACING.xxxl,
-    alignItems: "center",
-    gap: SPACING.xs,
-    borderBottomLeftRadius: RADIUS.xl + SPACING.lg,
-    borderBottomRightRadius: RADIUS.xl + SPACING.lg,
-    overflow: "hidden",
-  },
-  heroRing: { position: "absolute", top: -60, left: -70, width: 220, height: 220, borderRadius: 110, borderWidth: 28, borderColor: COLORS.onPrimarySubtle },
-  heroRingSmall: { position: "absolute", bottom: -30, right: -20, width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.onPrimarySubtle },
-  heroDescription: { maxWidth: 320 },
-  logoTile: { width: 84, height: 84, borderRadius: RADIUS.xl, backgroundColor: LOGIN_COLORS.surface, alignItems: "center", justifyContent: "center", marginBottom: SPACING.sm, ...SHADOWS.raised },
-  sheet: { paddingHorizontal: SPACING.lg, marginTop: -SPACING.huge - SPACING.md, gap: SPACING.lg, width: "100%", maxWidth: 560, alignSelf: "center" },
-  sectionIntro: { gap: SPACING.xxs },
-  formCard: { gap: SPACING.lg, padding: SPACING.xl, borderRadius: RADIUS.xl },
-  formHead: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.md },
-  formHeadIcon: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: LOGIN_COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
-  trustRow: { flexDirection: "row", justifyContent: "space-between", gap: SPACING.sm, paddingHorizontal: SPACING.sm },
-  trustItem: { flex: 1, alignItems: "center", gap: SPACING.xs },
+  screen: { flex: 1, backgroundColor: LOGIN_COLORS.surface },
+  content: { paddingHorizontal: SPACING.xl, gap: SPACING.xl, width: "100%", maxWidth: 560, alignSelf: "center", flexGrow: 1 },
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: LOGIN_COLORS.border, alignItems: "center", justifyContent: "center", backgroundColor: LOGIN_COLORS.surface },
+  backPressed: { backgroundColor: LOGIN_COLORS.surfaceLow },
+  brand: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  brandText: { alignItems: "flex-end" },
+  brandName: { lineHeight: 30 },
+  brandLatin: { fontSize: 9, lineHeight: 11, letterSpacing: 1 },
+  intro: { gap: SPACING.xs, alignItems: "flex-end" },
+  eyebrow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  eyebrowLine: { width: 18, height: 3, borderRadius: 2, backgroundColor: COLORS.accent },
+  title: { fontSize: 26, lineHeight: 40 },
+  secure: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.xs },
+  help: { marginTop: "auto", paddingTop: SPACING.lg, borderTopWidth: 1, borderTopColor: LOGIN_COLORS.border },
   stepsRtl: { flexDirection: "row-reverse" },
   steps: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: SPACING.md },
   step: { alignItems: "center", gap: SPACING.xs },

@@ -1,32 +1,29 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Check, GraduationCap, School, Users, type LucideIcon } from "lucide-react-native";
+import { ClipboardList, GraduationCap, UserRound, type LucideIcon } from "lucide-react-native";
 import { AppText } from "./ui";
-import { useReducedMotion } from "../hooks/useReducedMotion";
-import { pressScale } from "../lib/motion";
 import { LOGIN_COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 
 export type AccountEntry = "student" | "guardian" | "staff";
 
-const OPTIONS: { key: AccountEntry; label: string; hint: string; icon: LucideIcon }[] = [
-  { key: "staff", label: "الكادر", hint: "رمز واتساب", icon: School },
-  { key: "guardian", label: "ولي أمر", hint: "رمز واتساب", icon: Users },
-  { key: "student", label: "طالب", hint: "رقم الهوية", icon: GraduationCap },
+const OPTIONS: { key: AccountEntry; label: string; icon: LucideIcon }[] = [
+  { key: "staff", label: "الكادر التعليمي", icon: ClipboardList },
+  { key: "guardian", label: "ولي الأمر", icon: UserRound },
+  { key: "student", label: "الطالب", icon: GraduationCap },
 ];
 
-export const ENTRY_CONTENT: Record<AccountEntry, { title: string; description: string }> = {
-  student: { title: "الدخول إلى حساب الطالب", description: "أدخل رقم الهوية أو الإقامة ورقم الطالب في C‑Smart" },
-  guardian: { title: "الدخول إلى حساب ولي الأمر", description: "نرسل رمز تحقق عبر واتساب إلى الجوال المسجل لدى المدرسة" },
-  staff: { title: "الدخول إلى حساب الكادر التعليمي", description: "نرسل رمز تحقق عبر واتساب إلى الجوال المسجل لدى المدرسة" },
+export const ENTRY_CONTENT: Record<AccountEntry, { eyebrow: string; title: string; description: string }> = {
+  student: { eyebrow: "حساب الطالب", title: "تسجيل دخول الطالب", description: "أدخل بياناتك المسجلة في المدرسة للمتابعة." },
+  guardian: { eyebrow: "حساب ولي الأمر", title: "دخول ولي الأمر", description: "تابع رحلة أبنائك التعليمية من مكان واحد." },
+  staff: { eyebrow: "حساب الكادر التعليمي", title: "دخول الكادر التعليمي", description: "أهلاً بك، سجّل دخولك إلى حسابك في المدرسة." },
 };
 
-export const ENTRY_ICON: Record<AccountEntry, LucideIcon> = { student: GraduationCap, guardian: Users, staff: School };
+export const ENTRY_ICON: Record<AccountEntry, LucideIcon> = { student: GraduationCap, guardian: UserRound, staff: ClipboardList };
 
-/** بطاقات اختيار نوع الحساب: اختيار البطاقة لا يمنح صلاحية، فالأدوار تأتي من عضويات الخادم. */
+/** تبويبات نوع الحساب (أيقونة + اسم، والمحدد بخط سفلي): الاختيار لا يمنح صلاحية، فالأدوار تأتي من عضويات الخادم. */
 export function AccountEntrySelector({ value, onChange }: { value: AccountEntry; onChange: (value: AccountEntry) => void }) {
-  const reduced = useReducedMotion();
   return (
-    <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="نوع الحساب">
+    <View style={styles.row} accessibilityRole="tablist" accessibilityLabel="نوع الحساب">
       {OPTIONS.map((o) => {
         const on = o.key === value;
         const Icon = o.icon;
@@ -34,25 +31,17 @@ export function AccountEntrySelector({ value, onChange }: { value: AccountEntry;
           <Pressable
             key={o.key}
             onPress={() => onChange(o.key)}
-            accessibilityRole="radio"
+            accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={`${o.label}، ${o.hint}`}
-            style={({ pressed }) => [styles.card, on && styles.cardOn, pressed && !on && styles.cardPressed, { transform: [{ scale: pressScale(pressed, reduced) }] }]}
+            accessibilityLabel={o.label}
+            hitSlop={TOUCH.hitSlop}
+            style={({ pressed }) => [styles.tab, pressed && !on && styles.tabPressed]}
           >
-            {on ? (
-              <View style={styles.check}>
-                <Check size={12} color={LOGIN_COLORS.onPrimary} strokeWidth={3} />
-              </View>
-            ) : null}
-            <View style={[styles.icon, on && styles.iconOn]}>
-              <Icon size={22} color={on ? LOGIN_COLORS.onPrimary : LOGIN_COLORS.primary} strokeWidth={2} />
-            </View>
-            <AppText variant="label" align="center" color={on ? LOGIN_COLORS.primary : LOGIN_COLORS.foreground}>
+            <Icon size={20} color={on ? LOGIN_COLORS.primary : LOGIN_COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
+            <AppText variant="label" weight={on ? "bold" : "medium"} align="center" color={on ? LOGIN_COLORS.primary : LOGIN_COLORS.mutedForeground} numberOfLines={1}>
               {o.label}
             </AppText>
-            <AppText variant="micro" align="center" color={LOGIN_COLORS.mutedForeground}>
-              {o.hint}
-            </AppText>
+            <View style={[styles.underline, on && styles.underlineOn]} />
           </Pressable>
         );
       })}
@@ -61,22 +50,9 @@ export function AccountEntrySelector({ value, onChange }: { value: AccountEntry;
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: SPACING.sm },
-  card: {
-    flex: 1,
-    minHeight: TOUCH.min * 2,
-    alignItems: "center",
-    gap: SPACING.xs,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xs,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: LOGIN_COLORS.border,
-    backgroundColor: LOGIN_COLORS.surface,
-  },
-  cardOn: { borderColor: LOGIN_COLORS.primary, backgroundColor: LOGIN_COLORS.primaryTint },
-  cardPressed: { backgroundColor: LOGIN_COLORS.surfaceLow },
-  icon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: LOGIN_COLORS.primaryTint },
-  iconOn: { backgroundColor: LOGIN_COLORS.primary },
-  check: { position: "absolute", top: SPACING.sm, left: SPACING.sm, width: 20, height: 20, borderRadius: 10, backgroundColor: LOGIN_COLORS.primary, alignItems: "center", justifyContent: "center" },
+  row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LOGIN_COLORS.border },
+  tab: { flex: 1, minHeight: TOUCH.min + SPACING.lg, alignItems: "center", justifyContent: "flex-end", gap: SPACING.xs, paddingTop: SPACING.sm },
+  tabPressed: { backgroundColor: LOGIN_COLORS.surfaceLow, borderTopLeftRadius: RADIUS.sm, borderTopRightRadius: RADIUS.sm },
+  underline: { alignSelf: "stretch", height: 3, borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: "transparent", marginBottom: -1 },
+  underlineOn: { backgroundColor: LOGIN_COLORS.primary },
 });
