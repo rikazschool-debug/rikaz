@@ -12,7 +12,7 @@ P="psql -X -q -v ON_ERROR_STOP=1"
 $P -f fixtures/stub_schema.sql
 $P -f fixtures/platform_functions.sql
 $P -f ../supabase/migrations/20261119090000_guardian_id_first_login.sql
-$P -t -f guardian_activation.test.sql 2>&1 | grep -E "PASS|FAIL|ERROR"
+$P -t -f guardian_activation.test.sql -f extra_cases.test.sql 2>&1 | grep -E "PASS|FAIL|ERROR"
 bash concurrency.sh
 echo "--- rollback check"
 $P -f ../supabase/rollback/20261119090000_guardian_id_first_login.down.sql
