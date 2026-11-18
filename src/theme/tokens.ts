@@ -69,23 +69,23 @@ export const FONTS = {
   extrabold: "Cairo_800ExtraBold",
 } as const;
 
-/** ألوان شاشة الدخول المأخوذة من مرجع التصميم المرفق؛ بقية التطبيق تحتفظ بنظامها الحالي. */
+/** ألوان شاشة الدخول مرتبطة بلوحة ركاز نفسها حتى تبقى الشاشات متناسقة. */
 export const LOGIN_COLORS = {
-  background: "#FAF8FF",
-  surface: "#FFFFFF",
-  surfaceLow: "#F2F3FF",
-  surfaceContainer: "#EAEDFF",
-  primary: "#00236F",
-  primaryPressed: "#00164E",
-  primaryContainer: "#1E3A8A",
-  primaryTint: "#DCE1FF",
-  secondary: "#006398",
-  foreground: "#131B2E",
-  mutedForeground: "#444651",
-  border: "#C5C5D3",
-  inputBackground: "#F2F3FF",
-  destructive: "#BA1A1A",
-  onPrimary: "#FFFFFF",
+  background: COLORS.background,
+  surface: COLORS.card,
+  surfaceLow: COLORS.muted,
+  surfaceContainer: COLORS.primaryTint,
+  primary: COLORS.primary,
+  primaryPressed: COLORS.primaryPressed,
+  primaryContainer: COLORS.primary,
+  primaryTint: COLORS.primaryTint,
+  secondary: COLORS.primary,
+  foreground: COLORS.foreground,
+  mutedForeground: COLORS.mutedForeground,
+  border: COLORS.border,
+  inputBackground: COLORS.inputBg,
+  destructive: COLORS.destructive,
+  onPrimary: COLORS.primaryForeground,
 } as const;
 
 export type FontWeightName = keyof typeof FONTS;

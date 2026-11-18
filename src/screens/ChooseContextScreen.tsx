@@ -8,6 +8,7 @@ import { Brand } from "../components/Brand";
 import { useAuth } from "../hooks/useAuth";
 import { AppContext } from "../api/types";
 import { ACCOUNT_KIND_LABEL, accountKind, contextLabel } from "../lib/contexts";
+import { formatAuthFailure } from "../lib/authDiagnostics";
 import { COLORS, RADIUS, SHADOWS, SPACING, TOUCH } from "../theme/tokens";
 
 interface Group {
@@ -20,7 +21,7 @@ interface Group {
 /** اختيار المدرسة والصفة: يظهر بعد الدخول لمن لديه أكثر من دور، ومن الرئيسية للتبديل */
 export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const insets = useSafeAreaInsets();
-  const { contexts, active, chooseContext, contextsLoading, contextsError, reloadContexts, signOut } = useAuth();
+  const { contexts, active, chooseContext, contextsLoading, contextsError, contextFailure, reloadContexts, signOut } = useAuth();
   const [pending, setPending] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
@@ -84,7 +85,11 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
           <ActivityIndicator color={COLORS.primary} style={{ marginTop: SPACING.xxxl }} />
         ) : contextsError ? (
           <View style={styles.stack}>
-            <Notice tone="error">تعذّر تحميل صفاتك. تأكد من الاتصال ثم أعد المحاولة.</Notice>
+            <Notice tone="error" title="تعذر تحميل سياق الحساب">
+              {contextFailure
+                ? formatAuthFailure(contextFailure)
+                : "تعذر تحميل سياق الحساب. أعد المحاولة."}
+            </Notice>
             <Button title="إعادة المحاولة" variant="secondary" onPress={() => void reloadContexts()} />
             <Button
               title="تسجيل الخروج"
@@ -137,7 +142,7 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
                       accessibilityState={{ selected: on, busy: pending === c.key }}
                       accessibilityLabel={`${contextLabel(c)}، ${ACCOUNT_KIND_LABEL[kind]}، ${g.schoolName}`}
                       android_ripple={{ color: COLORS.primaryTint }}
-                      style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, pressed && { backgroundColor: COLORS.muted }]}
+                      style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, on && styles.rowOn, pressed && { backgroundColor: COLORS.muted }]}
                     >
                       <IconTile icon={Icon} tone={on ? "primary" : "muted"} size={44} />
                       <View style={styles.flex}>
@@ -178,6 +183,7 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
 };
 
 const styles = StyleSheet.create({
+  rowOn: { backgroundColor: COLORS.primaryTint },
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   top: { minHeight: 56, paddingHorizontal: SPACING.lg, flexDirection: "row", alignItems: "center" },

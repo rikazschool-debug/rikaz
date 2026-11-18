@@ -1,7 +1,6 @@
 import React from "react";
 import { GraduationCap, School, Users } from "lucide-react-native";
 import { Segmented, SegmentOption } from "./ui";
-import { LOGIN_COLORS } from "../theme/tokens";
 
 export type AccountEntry = "student" | "guardian" | "staff";
 
@@ -24,13 +23,6 @@ export function AccountEntrySelector({ value, onChange }: { value: AccountEntry;
       options={OPTIONS}
       value={value}
       onChange={onChange}
-      colors={{
-        primary: LOGIN_COLORS.primary,
-        primaryTint: LOGIN_COLORS.primaryTint,
-        muted: LOGIN_COLORS.surfaceLow,
-        mutedForeground: LOGIN_COLORS.mutedForeground,
-        border: LOGIN_COLORS.border,
-      }}
     />
   );
 }
