@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { ExternalLink, MessageCircle, ShieldCheck } from "lucide-react-native";
+import { BadgeCheck, Check, ExternalLink, Lock, MessageCircle, ShieldCheck, type LucideIcon } from "lucide-react-native";
 import { RikazLogo } from "../components/RikazLogo";
-import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT } from "../components/AccountEntrySelector";
+import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT, ENTRY_ICON } from "../components/AccountEntrySelector";
 import { OtpCodeInput } from "../components/OtpCodeInput";
 import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
-import { COLORS, LOGIN_COLORS, RADIUS, SPACING } from "../theme/tokens";
+import { COLORS, LOGIN_COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
 import { CONFIG } from "../config";
 import { digitsOnly, isValidNationalId, RESEND_SECONDS } from "../lib/identity";
 import { loginErrorMessage, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
@@ -18,9 +18,11 @@ export const LoginScreen: React.FC = () => {
   const meta = ENTRY_CONTENT[entry];
   const showLoginForms = CONFIG.idLoginEnabled || CONFIG.loginDesignPreviewEnabled;
 
+  const EntryIcon = ENTRY_ICON[entry];
+
   return (
     <KeyboardAvoidingView style={[styles.screen, { backgroundColor: LOGIN_COLORS.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView
         style={styles.screen}
         contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.xxxl }}
@@ -29,85 +31,122 @@ export const LoginScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+          <View style={styles.heroRing} />
+          <View style={styles.heroRingSmall} />
           <View style={styles.logoTile} accessible accessibilityRole="header" accessibilityLabel="ركاز، منظومة الإدارة التعليمية الذكية">
-            <RikazLogo size={56} />
-            <View style={styles.logoDot} />
+            <RikazLogo size={52} />
           </View>
-          <AppText variant="display" color={LOGIN_COLORS.primary} align="center" style={styles.brandName}>
+          <AppText variant="display" color={LOGIN_COLORS.onPrimary} align="center">
             ركاز
           </AppText>
-          <AppText variant="bodyStrong" color={LOGIN_COLORS.foreground} align="center">
+          <AppText variant="body" color={COLORS.onPrimaryMuted} align="center" style={styles.heroDescription}>
             منظومة الإدارة التعليمية الذكية
-          </AppText>
-          <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} align="center">
-            الدخول الموحد للطلاب وأولياء الأمور والكادر التعليمي
-          </AppText>
-          <AppText variant="title" color={LOGIN_COLORS.foreground} align="center" style={styles.heroTitle}>
-            أهلاً بك في ركاز
-          </AppText>
-          <AppText variant="body" color={LOGIN_COLORS.mutedForeground} align="center" style={styles.heroDescription}>
-            بوابتك اليومية للتعلّم والتواصل مع المدرسة
           </AppText>
         </View>
 
         <View style={styles.sheet}>
-          <View style={styles.sectionIntro}>
-            <AppText variant="headline" color={LOGIN_COLORS.foreground}>
-              تسجيل الدخول
-            </AppText>
-            <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
-              اختر نوع الحساب للمتابعة
-            </AppText>
-          </View>
-          <AccountEntrySelector value={entry} onChange={setEntry} />
           <Card raised style={styles.formCard}>
-            <View style={styles.formAccent} />
-            <View style={styles.descRow}>
-              <View style={[styles.dot, { backgroundColor: LOGIN_COLORS.secondary }]} />
-              <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} style={styles.flex}>
-                {meta.description}
+            <View style={styles.sectionIntro}>
+              <AppText variant="title" color={LOGIN_COLORS.foreground}>
+                أهلاً بك
+              </AppText>
+              <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
+                اختر نوع حسابك لتسجيل الدخول
               </AppText>
             </View>
+            <AccountEntrySelector value={entry} onChange={setEntry} />
             <Divider style={{ backgroundColor: LOGIN_COLORS.border }} />
+            <View style={styles.formHead}>
+              <View style={styles.formHeadIcon}>
+                <EntryIcon size={22} color={LOGIN_COLORS.primary} />
+              </View>
+              <View style={styles.flex}>
+                <AppText variant="headline">{meta.title}</AppText>
+                <AppText variant="caption" color={LOGIN_COLORS.mutedForeground}>
+                  {meta.description}
+                </AppText>
+              </View>
+            </View>
             {!showLoginForms ? (
-              <IdLoginUnavailable title={meta.title} />
+              <IdLoginUnavailable />
             ) : (
               <>
                 {CONFIG.loginDesignPreviewEnabled && !CONFIG.idLoginEnabled ? (
                   <Notice tone="warning" title="معاينة تصميم فقط">
-                    أزرار الدخول وإرسال الرمز معطّلة حتى اكتمال اختبار حساب الطالب وولي الأمر على VPS.
+                    أزرار الدخول وإرسال الرمز معطّلة حتى اكتمال اختبار الدخول.
                   </Notice>
                 ) : null}
                 {entry === "student" ? (
                   CONFIG.studentLoginEnabled ? (
                     <StudentForm key="student" />
                   ) : (
-                    <Notice tone="warning" title="اختبار الطالب متوقف مؤقتًا">
-                      مسار الـVPS قد يُكمل إعداد الطالب الأولي عند الدخول. أوقفناه حتى لا تتغير بيانات الحساب دون إذن.
+                    <Notice tone="warning" title="دخول الطالب متوقف مؤقتًا">
+                      يمكنك الدخول من منصة ركاز على الويب إلى حين تفعيله في التطبيق.
                     </Notice>
                   )
                 ) : (
-                  <CodeLogin key={entry} portal={entry} title={meta.title} />
+                  <CodeLogin key={entry} portal={entry} />
                 )}
               </>
             )}
           </Card>
-          <View style={styles.helpRow}>
-            <ShieldCheck size={16} color={LOGIN_COLORS.mutedForeground} />
-            <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} style={styles.flexShrink}>
-              تواجه صعوبة في الدخول؟ تواصل مع إدارة مدرستك.
-            </AppText>
+
+          <View style={styles.trustRow}>
+            <TrustItem icon={Lock} label="اتصال مشفّر" />
+            <TrustItem icon={ShieldCheck} label="رمز لمرة واحدة" />
+            <TrustItem icon={BadgeCheck} label="حسابات المدرسة فقط" />
           </View>
+          <AppText variant="caption" color={LOGIN_COLORS.mutedForeground} align="center">
+            تواجه صعوبة في الدخول؟ تواصل مع إدارة مدرستك.
+          </AppText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
+const TrustItem: React.FC<{ icon: LucideIcon; label: string }> = ({ icon: Icon, label }) => (
+  <View style={styles.trustItem}>
+    <Icon size={16} color={LOGIN_COLORS.primary} />
+    <AppText variant="micro" color={LOGIN_COLORS.mutedForeground} align="center">
+      {label}
+    </AppText>
+  </View>
+);
+
+/** خطوات دخول ولي الأمر والكادر: رقم الهوية ثم رمز التحقق. */
+const Steps: React.FC<{ step: 1 | 2 }> = ({ step }) => (
+  <View style={[styles.steps, styles.stepsRtl]} accessibilityLabel={`الخطوة ${step} من 2`}>
+    {(["رقم الهوية", "رمز التحقق"] as const).map((label, i) => {
+      const n = i + 1;
+      const done = n < step;
+      const on = n === step;
+      return (
+        <React.Fragment key={label}>
+          {i > 0 ? <View style={[styles.stepLine, step > 1 && styles.stepLineOn]} /> : null}
+          <View style={styles.step}>
+            <View style={[styles.stepDot, (on || done) && styles.stepDotOn]}>
+              {done ? (
+                <Check size={14} color={LOGIN_COLORS.onPrimary} strokeWidth={3} />
+              ) : (
+                <AppText variant="micro" weight="bold" color={on ? LOGIN_COLORS.onPrimary : LOGIN_COLORS.mutedForeground}>
+                  {n}
+                </AppText>
+              )}
+            </View>
+            <AppText variant="micro" color={on ? LOGIN_COLORS.foreground : LOGIN_COLORS.mutedForeground}>
+              {label}
+            </AppText>
+          </View>
+        </React.Fragment>
+      );
+    })}
+  </View>
+);
+
 /** يبقى المسار الحقيقي معطلًا حتى قبول اختبارات الدخول؛ لا يستبدل حارس الإعداد. */
-const IdLoginUnavailable: React.FC<{ title: string }> = ({ title }) => (
+const IdLoginUnavailable: React.FC = () => (
   <View style={styles.gap}>
-    <AppText variant="headline">{title}</AppText>
     <Notice tone="warning" title="الدخول من التطبيق متوقف مؤقتًا">
       خدمات الدخول منشورة، ويظل التطبيق مغلقًا حتى قبول اختبار الطالب وولي الأمر. يمكنك الدخول من منصة ركاز على الويب.
     </Notice>
@@ -137,7 +176,6 @@ const StudentForm: React.FC = () => {
 
   return (
     <View style={styles.gap}>
-      <AppText variant="headline">الدخول إلى حساب الطالب</AppText>
       <TextField
         label="رقم الهوية أو الإقامة"
         value={nid}
@@ -178,7 +216,7 @@ const StudentForm: React.FC = () => {
 };
 
 /** ولي الأمر والموظفون: رقم الهوية ثم رمز من 6 أرقام على واتساب */
-const CodeLogin: React.FC<{ portal: "guardian" | "staff"; title: string }> = ({ portal, title }) => {
+const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
   const [nid, setNid] = useState("");
   const [code, setCode] = useState("");
   const [ch, setCh] = useState<{ id: string; masked: string } | null>(null);
@@ -226,7 +264,7 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff"; title: string }> = ({ 
   if (!ch) {
     return (
       <View style={styles.gap}>
-        <AppText variant="headline">{title}</AppText>
+        <Steps step={1} />
         <TextField
           label="رقم الهوية أو الإقامة"
           value={nid}
@@ -257,6 +295,7 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff"; title: string }> = ({ 
 
   return (
     <View style={styles.gap}>
+      <Steps step={2} />
       <View style={styles.otpHead}>
         <View style={styles.otpIcon}>
           <ShieldCheck size={26} color={LOGIN_COLORS.primary} />
@@ -309,25 +348,33 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: LOGIN_COLORS.background },
   hero: {
-    backgroundColor: LOGIN_COLORS.background,
+    backgroundColor: LOGIN_COLORS.primary,
     paddingHorizontal: SPACING.xxl,
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING.huge + SPACING.xxxl,
     alignItems: "center",
     gap: SPACING.xs,
+    borderBottomLeftRadius: RADIUS.xl + SPACING.lg,
+    borderBottomRightRadius: RADIUS.xl + SPACING.lg,
+    overflow: "hidden",
   },
-  heroTitle: { marginTop: SPACING.md, textAlign: "center" },
-  brandName: { marginTop: SPACING.xs },
-  heroDescription: { maxWidth: 320, marginTop: -SPACING.xs },
-  logoTile: { width: 96, height: 96, borderRadius: RADIUS.xl, backgroundColor: LOGIN_COLORS.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: LOGIN_COLORS.border },
-  logoDot: { position: "absolute", top: -4, left: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.accent, borderWidth: 3, borderColor: LOGIN_COLORS.background },
-  sheet: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, gap: SPACING.md, width: "100%", maxWidth: 560, alignSelf: "center" },
-  sectionIntro: { gap: SPACING.xxs, paddingHorizontal: SPACING.xs },
-  formAccent: { position: "absolute", top: 0, left: 0, right: 0, height: 4, backgroundColor: LOGIN_COLORS.primary },
-  formCard: { gap: SPACING.md, padding: SPACING.lg, paddingTop: SPACING.xl, overflow: "hidden" },
-  helpRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, paddingHorizontal: SPACING.lg },
-  flexShrink: { flexShrink: 1 },
-  descRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 7 },
+  heroRing: { position: "absolute", top: -60, left: -70, width: 220, height: 220, borderRadius: 110, borderWidth: 28, borderColor: COLORS.onPrimarySubtle },
+  heroRingSmall: { position: "absolute", bottom: -30, right: -20, width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.onPrimarySubtle },
+  heroDescription: { maxWidth: 320 },
+  logoTile: { width: 84, height: 84, borderRadius: RADIUS.xl, backgroundColor: LOGIN_COLORS.surface, alignItems: "center", justifyContent: "center", marginBottom: SPACING.sm, ...SHADOWS.raised },
+  sheet: { paddingHorizontal: SPACING.lg, marginTop: -SPACING.huge - SPACING.md, gap: SPACING.lg, width: "100%", maxWidth: 560, alignSelf: "center" },
+  sectionIntro: { gap: SPACING.xxs },
+  formCard: { gap: SPACING.lg, padding: SPACING.xl, borderRadius: RADIUS.xl },
+  formHead: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.md },
+  formHeadIcon: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: LOGIN_COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
+  trustRow: { flexDirection: "row", justifyContent: "space-between", gap: SPACING.sm, paddingHorizontal: SPACING.sm },
+  trustItem: { flex: 1, alignItems: "center", gap: SPACING.xs },
+  stepsRtl: { flexDirection: "row-reverse" },
+  steps: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: SPACING.md },
+  step: { alignItems: "center", gap: SPACING.xs },
+  stepDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: LOGIN_COLORS.surfaceLow, borderWidth: 1, borderColor: LOGIN_COLORS.border },
+  stepDotOn: { backgroundColor: LOGIN_COLORS.primary, borderColor: LOGIN_COLORS.primary },
+  stepLine: { flex: 1, height: 2, marginTop: 13, marginHorizontal: SPACING.sm, backgroundColor: LOGIN_COLORS.border },
+  stepLineOn: { backgroundColor: LOGIN_COLORS.primary },
   gap: { gap: SPACING.lg },
   otpHead: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.md },
   otpIcon: { width: 48, height: 48, borderRadius: RADIUS.md, backgroundColor: LOGIN_COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
