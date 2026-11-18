@@ -9,6 +9,7 @@ import {
   logAuthDiagnostic,
   type AuthFailureSummary,
 } from "../lib/authDiagnostics";
+import { serverLoginMessage } from "../lib/loginMessages";
 
 /**
  * طرق الدخول المعتمدة في المنصة (src/routes/auth.tsx):
@@ -79,8 +80,10 @@ async function callPlatform(path: IdAuthPath, body: Record<string, string>): Pro
   }
   if (json.error) {
     logAuthDiagnostic(path, "api-error", { status: res.status });
-    const message = res.status === 401 || res.status === 403 ? MSG.badCredentials : MSG.server;
-    throw new LoginError(message, { stage: path, status: res.status });
+    // رسائل الخادم العامة (رقم غير مسجل، بوابة خاطئة، رمز خاطئ) تُعرض كما هي بلا رمز تقني.
+    const shown = serverLoginMessage(res.status, json.error);
+    if (shown) throw new LoginError(shown);
+    throw new LoginError(MSG.server, { stage: path, status: res.status });
   }
   if (!res.ok) {
     logAuthDiagnostic(path, "http-error", { status: res.status });
