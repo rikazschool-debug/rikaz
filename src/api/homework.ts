@@ -87,3 +87,10 @@ export const gradeSubmission = (a: { sub: string; score: number | null; criteria
 export const returnSubmission = (sub: string, reason: string) => rpc<unknown>("return_submission", { _sub: sub, _reason: reason });
 export const examResultAction = (sub: string, action: "review" | "approve", rev: number | null) => rpc<unknown>("exam_result_action", { _sub: sub, _action: action, _rev: rev });
 export const publishResults = (hw: string, subs: string[] | null) => rpc<number>("publish_results", { _hw: hw, _subs: subs });
+
+/* ---------- حل الاختبار الإلكتروني (exam_get يحجب الإجابات الصحيحة عن الطالب) ---------- */
+export type ExamQ = { type: string; prompt: string; points: number; options: string[] };
+export type ExamPaper = { delivery: string; can_grade: boolean; hidden?: boolean; duration_minutes: number | null; forms: { id: string; questions: ExamQ[] }[]; questions: ExamQ[] };
+export const fetchExam = (hw: string) => rpc<ExamPaper>("exam_get", { _hw: hw });
+export const submitExam = (hw: string, form: string, answers: (number[] | string)[], client: string) =>
+  rpc<unknown>("exam_submit", { _hw: hw, _form: form, _answers: answers, _client: client });

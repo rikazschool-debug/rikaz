@@ -77,3 +77,28 @@ export const fetchEvalChildren = () => rpc<{ id: string; name: string }[]>("ev_g
 export const fetchEvalTeachers = (student: string) => rpc<{ form: { id: string; version: number; title: string; items: EvalItem[] }; teachers: EvalTeacher[] }>("ev_g_teachers", { _student: student });
 export const saveEval = (student: string, teacher: string, answers: Record<string, number | "na">, comment: string) =>
   rpc<unknown>("ev_g_save", { _student: student, _teacher: teacher, _answers: answers, _comment: comment });
+
+/* ---------- إنشاء واجب: المقررات التي للمعلم عليها تكليف ساري فقط، والحفظ/النشر بدوال المنصة ---------- */
+export type MyCourse = { id: string; subject: string; section: string };
+export async function fetchMyCourses(schoolId: string): Promise<MyCourse[]> {
+  const { data, error } = await supabase.from("courses").select("id, subjects(name), sections(name)").eq("school_id", schoolId);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as { id: string; subjects: { name: string } | null; sections: { name: string } | null }[];
+  const mine = await Promise.all(rows.map(async (c) => {
+    const r = await supabase.rpc("is_course_teacher" as never, { _course: c.id } as never);
+    if (r.error) throw r.error;
+    return r.data ? { id: c.id, subject: c.subjects?.name ?? "", section: c.sections?.name ?? "" } : null;
+  }));
+  return mine.filter(Boolean) as MyCourse[];
+}
+export async function createHomework(payload: Record<string, unknown>, publish: boolean): Promise<{ id: string; published: string | null }> {
+  const s = await supabase.rpc("save_homework" as never, { _id: null, _d: payload } as never);
+  if (s.error) throw s.error;
+  const id = s.data as unknown as string;
+  const k = await supabase.rpc("set_homework_kind" as never, { _id: id, _kind: "homework" } as never);
+  if (k.error) throw k.error;
+  if (!publish) return { id, published: null };
+  const p = await supabase.rpc("publish_homework" as never, { _id: id } as never);
+  if (p.error) throw Object.assign(new Error("saved_not_published"), { cause: p.error, id });
+  return { id, published: p.data as unknown as string };
+}

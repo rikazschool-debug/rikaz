@@ -6,12 +6,12 @@ import { Chips, DataState, Panel, Pill, SubScreen } from "../../components/Stude
 import { fileUrl, newKey } from "../../api/family";
 import {
   examResultAction, fetchHomeworkDetail, fetchMySubmission, fetchSubmissions, gradeSubmission, publishResults, removeSubmissionFile,
-  returnSubmission, saveDraft, submitHomework, uploadSubmissionFile, type GradedRow, type HwDetail, type HwFile,
+  returnSubmission, saveDraft, fetchExam, submitExam, submitHomework, uploadSubmissionFile, type GradedRow, type HwDetail, type HwFile,
 } from "../../api/homework";
 import { useLoad, errorText } from "../../hooks/useLoad";
 import { useStudentQuery } from "../student/useStudentData";
 import { schoolTime, SUB_STATUS } from "../../lib/studentData";
-import { criteriaTotal, filterRows, GRADE_STATUS, readyToPublish, safeLink, scoreError, submitLabel, type Att, type GradeFilter } from "../../lib/homeworkRules";
+import { CHOICE_TYPES, examAnswers, toggleChoice, unanswered, criteriaTotal, filterRows, GRADE_STATUS, readyToPublish, safeLink, scoreError, submitLabel, type Att, type GradeFilter } from "../../lib/homeworkRules";
 import { AttachBar } from "./ChatMedia";
 import { COLORS, SPACING } from "../../theme/tokens";
 
@@ -114,7 +114,7 @@ const MinePanel: React.FC<{ h: HwDetail; readOnly: boolean }> = ({ h, readOnly }
       ) : h.max_score != null && x.attempts.length ? <AppText variant="micro" color={COLORS.mutedForeground}>لم يُصحَّح بعد.</AppText> : null}
 
       {readOnly ? null : h.kind === "test" ? (
-        <Notice tone="info">{types.includes("paper") ? "يُسلَّم الاختبار الورقي لدى المعلم." : "يُحل الاختبار الإلكتروني من منصة ركاز."}</Notice>
+        <ExamSolve h={h} done={x.attempts.length > 0} onDone={refresh} />
       ) : !canEdit ? (
         <Notice tone="warning" title="التسليم غير متاح">{x.state.reason ?? ""}</Notice>
       ) : (
@@ -141,6 +141,56 @@ const MinePanel: React.FC<{ h: HwDetail; readOnly: boolean }> = ({ h, readOnly }
       {x.attempts.length ? <AppText variant="label" weight="bold">سجل المحاولات</AppText> : null}
       {x.attempts.map((a) => <AttemptCard key={a.id} a={a} files={x.files.filter((f) => f.attempt_no === a.attempt_no).map((f) => f.files)} />)}
     </Panel>
+  );
+};
+
+/* ---------- حل الاختبار الإلكتروني ---------- */
+const ExamSolve: React.FC<{ h: HwDetail; done: boolean; onDone: () => void }> = ({ h, done, onDone }) => {
+  const q = useLoad(() => fetchExam(h.id), [h.id]);
+  const [form, setForm] = useState<string>("");
+  const [ans, setAns] = useState<Record<number, number[] | string>>({});
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const client = useMemo(() => newKey(), []);
+  if (done) return <Notice tone="success">سلّمت هذا الاختبار ولا يمكن تسليمه مرة أخرى. تظهر الدرجة بعد مراجعتها واعتمادها ونشرها.</Notice>;
+  if (!q.data) return <DataState loading={q.loading} error={q.error} onRetry={q.reload} />;
+  const p = q.data;
+  if (p.delivery !== "online" || p.hidden) return <Notice tone="info" title={p.delivery === "bubble" ? "اختبار تظليل" : "اختبار ورقي"}>يُحل الاختبار داخل الصف على ورقة يوزّعها المعلم في موعد الاختبار، ثم يصححها ويرصد النتيجة.</Notice>;
+  const forms = p.forms?.length ? p.forms : [{ id: "A", questions: p.questions }];
+  const cur = forms.find((f) => f.id === form) ?? forms[0]!;
+  const left = unanswered(cur.questions, ans);
+  const send = async () => {
+    setBusy(true); setErr(null);
+    try { await submitExam(h.id, cur.id, examAnswers(cur.questions, ans), client); onDone(); } catch (e) { setErr(errorText(e)); setConfirm(false); } finally { setBusy(false); }
+  };
+  return (
+    <View style={styles.gap}>
+      <AppText variant="bodyStrong" weight="extrabold">حل الاختبار الإلكتروني</AppText>
+      {p.duration_minutes ? <AppText variant="caption">{`المدة: ${p.duration_minutes} دقيقة`}</AppText> : null}
+      {forms.length > 1 ? <Chips label="النموذج" value={cur.id} onChange={(v) => { setForm(v); setAns({}); }} items={forms.map((f) => ({ key: f.id, label: `النموذج ${f.id}` }))} /> : null}
+      {cur.questions.map((qq, i) => (
+        <View key={`${cur.id}-${i}`} style={styles.attempt}>
+          <AppText variant="bodyStrong">{`${i + 1}. ${qq.prompt} (${qq.points})`}</AppText>
+          {CHOICE_TYPES.includes(qq.type) ? qq.options.map((o, j) => {
+            const on = Array.isArray(ans[i]) && (ans[i] as number[]).includes(j);
+            return (
+              <Pressable key={j} disabled={busy} onPress={() => setAns((a) => ({ ...a, [i]: toggleChoice(qq.type, a[i], j) }))}
+                accessibilityRole={qq.type === "multiple" ? "checkbox" : "radio"} accessibilityState={{ checked: on }} style={[styles.opt, on && styles.optOn]}>
+                <View style={[styles.dot, qq.type === "multiple" && styles.square, on && styles.dotOn]} />
+                <AppText variant="body" style={styles.flex}>{o}</AppText>
+              </Pressable>
+            );
+          }) : <TextField label={`إجابة السؤال ${i + 1}`} value={typeof ans[i] === "string" ? (ans[i] as string) : ""} onChangeText={(v) => setAns((a) => ({ ...a, [i]: v }))} multiline editable={!busy} />}
+        </View>
+      ))}
+      {err ? <Notice tone="error">{err}</Notice> : null}
+      {confirm ? (
+        <Notice tone="warning" title="تأكيد التسليم">{left ? `بقي ${left} سؤال دون إجابة. ` : ""}لا يمكن تعديل الإجابات بعد التسليم.</Notice>
+      ) : null}
+      <Button title={confirm ? "تأكيد تسليم الاختبار" : "تسليم الاختبار"} loading={busy} disabled={busy || h.status !== "published"} onPress={() => (confirm ? void send() : setConfirm(true))} />
+      {confirm ? <Button title="متابعة الحل" variant="ghost" disabled={busy} onPress={() => setConfirm(false)} /> : null}
+    </View>
   );
 };
 
@@ -256,5 +306,10 @@ const styles = StyleSheet.create({
   grade: { backgroundColor: COLORS.primaryTint, borderRadius: 12, padding: SPACING.md, gap: 4 },
   stuRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, paddingVertical: SPACING.md, minHeight: 56 },
   border: { borderTopWidth: 1, borderTopColor: COLORS.border },
+  opt: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 44, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: SPACING.md, backgroundColor: COLORS.card },
+  optOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryTint },
+  dot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.border },
+  square: { borderRadius: 5 },
+  dotOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
   grader: { gap: SPACING.md, paddingBottom: SPACING.md },
 });

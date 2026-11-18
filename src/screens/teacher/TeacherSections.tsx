@@ -15,6 +15,8 @@ import {
 } from "../../lib/teacherData";
 import { COLORS, SPACING } from "../../theme/tokens";
 import { HomeworkDetail } from "../shared/HomeworkDetail";
+import { NewHomework } from "./NewHomework";
+import { fetchVisits, VISIT_REASON, VISIT_SOURCE, VISIT_STATUS } from "../../api/family";
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
 const MARK_TONE: Record<MarkStatus, "success" | "danger" | "accent" | "muted"> = { present: "success", absent: "danger", late: "accent", excused: "muted" };
@@ -149,11 +151,16 @@ export const TeacherHomework: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const { active } = useAuth();
   const [kind, setKind] = useState<"homework" | "test">("homework");
   const [open, setOpen] = useState<string | null>(null);
-  const q = useLoad(() => fetchTeacherHomework(active?.schoolId ?? "", kind), [active?.schoolId, kind, open]);
+  const [creating, setCreating] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const q = useLoad(() => fetchTeacherHomework(active?.schoolId ?? "", kind), [active?.schoolId, kind, open, creating]);
+  if (creating) return <NewHomework onBack={() => setCreating(false)} onCreated={(id, m) => { setCreating(false); setNote(m); setOpen(id); }} />;
   if (open) return <HomeworkDetail id={open} role="teacher" onBack={() => setOpen(null)} />;
   return (
     <SubScreen title="الواجبات والاختبارات" eyebrow="ما أنشأته لطلابك" onBack={onBack} refreshing={q.loading} onRefresh={q.reload}>
       <SegmentTabs label="النوع" value={kind} onChange={setKind} items={[{ key: "homework", label: "الواجبات" }, { key: "test", label: "الاختبارات" }]} />
+      {kind === "homework" ? <Button title="واجب جديد" onPress={() => { setNote(null); setCreating(true); }} /> : null}
+      {note ? <Notice tone="success">{note}</Notice> : null}
       <DataState loading={q.loading} error={q.error} empty={!q.data?.length} emptyTitle={kind === "test" ? "لا توجد اختبارات" : "لا توجد واجبات"} onRetry={q.reload}>
         <View style={styles.list}>
           {(q.data ?? []).map((h) => (
@@ -301,3 +308,34 @@ const styles = StyleSheet.create({
   bar: { height: 6, borderRadius: 3, backgroundColor: COLORS.muted, overflow: "hidden", marginTop: SPACING.xs },
   fill: { height: 6, backgroundColor: COLORS.primary },
 });
+
+/* ---------- الزيارات العائلية: مقابلات المعلم مع أولياء الأمور (الاعتماد والتعديل لدى الإدارة كما في المنصة) ---------- */
+export const TeacherVisits: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const { active } = useAuth();
+  const [box, setBox] = useState<"upcoming" | "past">("upcoming");
+  const q = useLoad(() => fetchVisits(active?.schoolId ?? ""), [active?.schoolId]);
+  const live = ["pending", "proposed", "confirmed", "arrived"];
+  const rows = (q.data ?? []).filter((v) => (box === "upcoming" ? live.includes(v.status) : !live.includes(v.status)))
+    .sort((a, b) => (box === "upcoming" ? 1 : -1) * `${a.slot_date}${a.slot_time}`.localeCompare(`${b.slot_date}${b.slot_time}`));
+  return (
+    <SubScreen title="الزيارات العائلية" eyebrow="مقابلاتي مع أولياء الأمور" onBack={onBack} refreshing={q.loading} onRefresh={q.reload}>
+      <SegmentTabs label="الزيارات" value={box} onChange={setBox} items={[{ key: "upcoming", label: "القادمة" }, { key: "past", label: "السابقة" }]} />
+      <DataState loading={q.loading && !q.data} error={q.error} empty={!rows.length} emptyTitle={box === "upcoming" ? "لا توجد مقابلات قادمة" : "لا توجد زيارات سابقة"} emptyHint="تحدد إدارة المدرسة المسؤول عن كل زيارة." onRetry={q.reload}>
+        <View style={styles.list}>
+          {rows.map((v) => (
+            <Panel key={v.id} style={styles.card}>
+              <View style={styles.head}>
+                <AppText variant="bodyStrong" weight="extrabold" style={styles.flex}>{`زيارة ${v.student ?? ""}`}</AppText>
+                <Pill label={VISIT_STATUS[v.status] ?? v.status} tone={["confirmed", "completed", "arrived"].includes(v.status) ? "success" : ["rejected", "cancelled", "no_show", "expired"].includes(v.status) ? "danger" : "accent"} />
+              </View>
+              <AppText variant="caption">{`${schoolDate(v.slot_date)} — ${v.slot_time}`}</AppText>
+              <AppText variant="micro" color={COLORS.mutedForeground}>{[v.guardian && `ولي الأمر: ${v.guardian}`, v.section && `شعبة ${v.section}`, VISIT_SOURCE[v.source], v.reason_cat ? VISIT_REASON[v.reason_cat] : null].filter(Boolean).join(" · ")}</AppText>
+              {v.details ? <AppText variant="body">{v.details}</AppText> : null}
+              {v.decision_reason ? <AppText variant="micro" color={COLORS.mutedForeground}>{`ملاحظة: ${v.decision_reason}`}</AppText> : null}
+            </Panel>
+          ))}
+        </View>
+      </DataState>
+    </SubScreen>
+  );
+};

@@ -65,6 +65,14 @@ export async function fetchGuardianLinks(schoolId: string): Promise<{ student_id
   if (error) throw error;
   return ((data ?? []) as unknown as { student_id: string; guardian_id: string; students: { full_name: string } | null }[]).map((r) => ({ student_id: r.student_id, guardian_id: r.guardian_id, name: r.students?.full_name ?? "" }));
 }
+/* المعلم: طلاب تكليفه الساري وأولياء أمورهم الموثّقون، وزملاء مدرسته (الخادم يحدد القوائم). */
+export const fetchTeacherStudents = (schoolId: string) =>
+  rpc<{ student_id: string; full_name: string; section: string | null; subject: string | null }[]>("teacher_students", { _school: schoolId }).then((r) => r ?? []);
+export const fetchFamilyContacts = (student: string) =>
+  rpc<{ guardian_id: string; full_name: string; relationship: string | null }[]>("family_contacts", { _student: student }).then((r) => r ?? []);
+export const fetchStaffDirectory = (schoolId: string) =>
+  rpc<{ user_id: string; full_name: string; role: string | null; department: string | null }[]>("staff_directory", { _school: schoolId, _org: null }).then((r) => r ?? []);
+export const startDirectConversation = (schoolId: string, other: string) => rpc<string>("start_direct_conversation", { _school: schoolId, _other: other });
 export const startFamilyConversation = (student: string, guardian: string, staff: string) => rpc<string>("start_family_conversation", { _student: student, _guardian: guardian, _staff_user: staff });
 
 /** صندوق الوارد كما في المنصة: مجموعات المواد/الشعب داخل الفصل الرقمي، والطالب يرى محادثاته ومجموعاته فقط. */
@@ -82,14 +90,16 @@ export const KIND_LABEL: Record<string, string> = { family: "تواصل أسرة
 /* ---------- الفصول الرقمية ---------- */
 export type SectionRoom = { id: string; title: string; subjects?: number | null; teachers?: number | null; posts?: number | null };
 export type RoomDetail = { id: string; title: string; school_id: string; view: string; subjects: { classroom_id: string; course_id: string; subject: string; teachers: string[] }[]; class_group?: string | null };
-export type Post = { id: string; title: string; body: string | null; pinned: boolean | null; status: string; created_at: string; school_id: string; comments_enabled?: boolean | null };
+export type Post = { id: string; title: string; body: string | null; pinned: boolean | null; status: string; created_at: string; school_id: string; comments_enabled?: boolean | null; audience?: string | null; author_user_id?: string | null };
 export type PostFile = { id: string; name: string; storage_path: string; source_id: string; size_bytes?: number | null };
 export type Comment = { id: string; body: string; created_at: string };
 
 export const fetchRooms = (schoolId: string) => rpc<SectionRoom[]>("section_rooms_list", { _school: schoolId }).then((r) => r ?? []);
 export const fetchRoom = (id: string) => rpc<RoomDetail>("section_room_get", { _room: id });
-export async function fetchPosts(classroom: string): Promise<{ posts: Post[]; files: PostFile[] }> {
-  const { data, error } = await supabase.from("classroom_posts").select("*").eq("classroom_id", classroom).eq("status", "published")
+export async function fetchPosts(classroom: string, all = false): Promise<{ posts: Post[]; files: PostFile[] }> {
+  let qy = supabase.from("classroom_posts").select("*").eq("classroom_id", classroom);
+  if (!all) qy = qy.eq("status", "published");
+  const { data, error } = await qy
     .order("pinned", { ascending: false }).order("created_at", { ascending: false });
   if (error) throw error;
   const posts = (data ?? []) as unknown as Post[];
@@ -97,6 +107,21 @@ export async function fetchPosts(classroom: string): Promise<{ posts: Post[]; fi
   const f = await supabase.from("files").select("id,name,storage_path,source_id,size_bytes").eq("source_type", "post").in("source_id", posts.map((p) => p.id));
   if (f.error) throw f.error;
   return { posts, files: (f.data ?? []) as unknown as PostFile[] };
+}
+/* نشر المعلم في فصل مقرره: المنصة تتحقق من التكليف الساري (is_course_teacher وسياسات الجدول). */
+export const isCourseTeacher = (course: string) => rpc<boolean>("is_course_teacher", { _course: course }).then((r) => !!r).catch(() => false);
+export const myUserId = uid;
+export async function createPost(classroom: string, schoolId: string, title: string, body: string) {
+  const { error } = await supabase.from("classroom_posts").insert({ classroom_id: classroom, school_id: schoolId, title: title.trim(), body } as never);
+  if (error) throw error;
+}
+export async function updatePost(id: string, v: Partial<Pick<Post, "status" | "pinned" | "comments_enabled" | "audience">>) {
+  const { error } = await supabase.from("classroom_posts").update(v as never).eq("id", id);
+  if (error) throw error;
+}
+export async function uploadPostFile(post: string, f: { uri: string; name: string; mime: string; size: number }) {
+  const rows = await rpc<{ id: string; storage_path: string }[]>("create_post_file", { _post: post, _name: f.name, _mime: f.mime || "application/octet-stream", _size: f.size });
+  return putFile(rows[0]!, f.uri, f.mime);
 }
 export async function fileUrl(f: { storage_path: string; name: string }): Promise<string | null> {
   const { data } = await supabase.storage.from("rikaz-files").createSignedUrl(f.storage_path, 60, { download: f.name });
@@ -250,7 +275,7 @@ export const createFamilyRequest = (student: string, kind: string, body: string)
 export const VISIT_STATUS: Record<string, string> = { pending: "بانتظار التأكيد", proposed: "مقترح تعديل", confirmed: "مؤكدة", rejected: "مرفوضة", cancelled: "ملغاة", arrived: "حضر", no_show: "لم يحضر", completed: "مكتملة", expired: "انقضى الموعد" };
 export const VISIT_REASON: Record<string, string> = { academic: "أكاديمي", behavior: "سلوكي", attendance: "الحضور والغياب", health: "صحي", admin: "إداري", other: "أخرى" };
 export const VISIT_SOURCE: Record<string, string> = { school: "استدعاء من المدرسة", guardian: "طلب من ولي الأمر" };
-export type Visit = { id: string; rev: number; school_id: string; student_id: string; student: string | null; host: string | null; slot_date: string; slot_time: string; status: string; source: string; reason_cat: string | null; details: string | null; awaiting: string | null; conf_date: string | null; conf_time: string | null; decision_reason: string | null };
+export type Visit = { id: string; rev: number; school_id: string; student_id: string; student: string | null; guardian?: string | null; section?: string | null; host: string | null; slot_date: string; slot_time: string; status: string; source: string; reason_cat: string | null; details: string | null; awaiting: string | null; conf_date: string | null; conf_time: string | null; decision_reason: string | null };
 export const ACTIVE_VISIT = ["pending", "proposed", "confirmed"];
 export async function fetchVisits(schoolId: string): Promise<Visit[]> {
   try { await rpc<unknown>("gv_expire_due", { _school: null }); } catch { /* اختياري كما في المنصة */ }

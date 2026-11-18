@@ -41,3 +41,49 @@ export function safeLink(u?: string | null): string | null {
   try { const p = new URL(u.trim()); return p.protocol === "https:" || p.protocol === "http:" ? p.toString() : null; } catch { return null; }
 }
 export const submitLabel = (attempts: number) => (attempts > 0 ? "إعادة التسليم" : "تسليم الواجب");
+
+/** إجابات الاختبار بنفس ترتيب الأسئلة: الاختيارية مصفوفة أرقام، والبقية نص؛ غير المجاب يُرسل فارغًا. */
+export const CHOICE_TYPES = ["single", "multiple", "truefalse"];
+export function examAnswers(qs: { type: string }[], a: Record<number, number[] | string>): (number[] | string)[] {
+  return qs.map((q, i) => a[i] ?? (CHOICE_TYPES.includes(q.type) ? [] : ""));
+}
+export function toggleChoice(type: string, old: number[] | string | undefined, j: number): number[] {
+  const cur = Array.isArray(old) ? old : [];
+  if (type !== "multiple") return [j];
+  return cur.includes(j) ? cur.filter((n) => n !== j) : [...cur, j];
+}
+export const unanswered = (qs: { type: string }[], a: Record<number, number[] | string>) =>
+  examAnswers(qs, a).filter((x) => (Array.isArray(x) ? !x.length : !x.trim())).length;
+
+/* ---------- إنشاء واجب (نفس حمولة save_homework في المنصة) ---------- */
+export type HwForm = {
+  course_id: string; title: string; instructions: string; types: string[]; from: { d: string; t: string } | null; due: { d: string; t: string } | null;
+  late_policy: "none" | "allow" | "until"; late_until: { d: string; t: string } | null; graded: boolean; max_score: string; allow_resubmit: boolean; max_attempts: string;
+};
+/** وقت المدرسة (الرياض +03:00) إلى ISO؛ بلا اختيار = null. */
+export const riyadhIso = (v: { d: string; t: string } | null) => (v ? new Date(`${v.d}T${v.t}:00+03:00`).toISOString() : null);
+export function nextDays(today: string, n: number): string[] {
+  const base = Date.parse(today + "T00:00:00Z");
+  return Array.from({ length: n }, (_, i) => new Date(base + i * 864e5).toISOString().slice(0, 10));
+}
+export function hwFormError(f: HwForm, now = Date.now()): string | null {
+  if (!f.course_id) return "اختر المقرر";
+  if (!f.title.trim()) return "اكتب عنوان الواجب";
+  if (!f.types.length) return "اختر طريقة تسليم واحدة على الأقل";
+  if (!f.due) return "حدد موعد التسليم";
+  const due = Date.parse(riyadhIso(f.due)!);
+  if (due <= now) return "موعد التسليم يجب أن يكون في المستقبل";
+  if (f.from && Date.parse(riyadhIso(f.from)!) >= due) return "وقت الإتاحة يجب أن يسبق موعد التسليم";
+  if (f.late_policy === "until" && (!f.late_until || Date.parse(riyadhIso(f.late_until)!) <= due)) return "الموعد النهائي للتأخر يجب أن يكون بعد موعد التسليم";
+  if (f.graded && !(Number(f.max_score) > 0)) return "الدرجة الكاملة يجب أن تكون أكبر من صفر";
+  if (f.allow_resubmit && !(Number.isInteger(Number(f.max_attempts)) && Number(f.max_attempts) >= 2)) return "عدد المحاولات 2 أو أكثر";
+  return null;
+}
+export function hwPayload(f: HwForm) {
+  return {
+    course_id: f.course_id, title: f.title.trim(), instructions: f.instructions, grading_notes: "", submission_types: f.types,
+    available_from: riyadhIso(f.from), due_at: riyadhIso(f.due), late_policy: f.late_policy, late_until: f.late_policy === "until" ? riyadhIso(f.late_until) : null,
+    max_score: f.graded ? f.max_score : null, criteria: [], allow_resubmit: f.allow_resubmit, max_attempts: f.allow_resubmit ? Number(f.max_attempts) : 1,
+    audience: "all", students: [], remind_hours: null, file_max_bytes: null,
+  };
+}

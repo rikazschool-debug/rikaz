@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Award, Bell, BookOpen, Briefcase, CalendarDays, ClipboardCheck, ClipboardList, HeartHandshake, Home, IdCard, LayoutGrid, MessagesSquare,
-  PartyPopper, School, ShieldCheck, Sparkles, UsersRound, type LucideIcon,
+  PartyPopper, School, Library, ShieldCheck, Sparkles, UsersRound, type LucideIcon,
 } from "lucide-react-native";
 import { BottomBar, type BottomItem } from "../../components/BottomBar";
 import { AppText } from "../../components/ui";
@@ -17,10 +17,12 @@ import { schoolDate, riyadhToday } from "../../lib/studentData";
 import type { EduKind } from "../../lib/teacherData";
 import { AccountScreen } from "../AccountScreen";
 import { Classrooms } from "../shared/Classrooms";
-import { ConversationList, Thread } from "../shared/Conversations";
+import { ConversationList, TeacherNewChat, Thread } from "../shared/Conversations";
+import { fetchConversations } from "../../api/family";
 import { NotificationsList } from "../shared/Notifications";
 import { Events } from "../shared/Events";
-import { EduRecords, LessonAttendance, TeacherDuties, TeacherHomework, TeacherMeetings, TeacherSchedule, TeacherTasks, TodayLessons } from "./TeacherSections";
+import { Collaboration } from "./Collaboration";
+import { TeacherVisits, EduRecords, LessonAttendance, TeacherDuties, TeacherHomework, TeacherMeetings, TeacherSchedule, TeacherTasks, TodayLessons } from "./TeacherSections";
 import { COLORS, RADIUS, SPACING } from "../../theme/tokens";
 
 export type TeacherTab = "account" | "comm" | "home" | "schedule" | "more";
@@ -33,7 +35,7 @@ const TABS: BottomItem<TeacherTab>[] = [
 ];
 
 /** أقسام المعلم كما في قائمة المنصة (NAV_BY_ROLE.teacher + الأقسام الإضافية للمعلم). */
-type Sec = "lessons" | "homework" | "classrooms" | "tasks" | "duties" | "meetings" | "events" | EduKind;
+type Sec = "lessons" | "homework" | "classrooms" | "tasks" | "duties" | "meetings" | "events" | "visits" | "collab" | EduKind;
 const SEC: Record<Sec, { label: string; icon: LucideIcon }> = {
   lessons: { label: "تحضير الحصص", icon: ClipboardCheck },
   homework: { label: "الواجبات والاختبارات", icon: ClipboardList },
@@ -42,6 +44,8 @@ const SEC: Record<Sec, { label: string; icon: LucideIcon }> = {
   duties: { label: "المناوبات", icon: ShieldCheck },
   meetings: { label: "الاجتماعات", icon: UsersRound },
   events: { label: "الأنشطة والفعاليات", icon: PartyPopper },
+  visits: { label: "الزيارات العائلية", icon: CalendarDays },
+  collab: { label: "التعاون", icon: Library },
   referral: { label: "التوجيه الطلابي", icon: HeartHandshake },
   talent: { label: "رعاية الموهوبين", icon: Sparkles },
   student_plan: { label: "الخطط العلاجية", icon: BookOpen },
@@ -50,7 +54,7 @@ const SEC: Record<Sec, { label: string; icon: LucideIcon }> = {
 const QUICK: Sec[] = ["lessons", "homework", "classrooms", "tasks", "duties", "meetings"];
 const MORE: { title: string; keys: Sec[] }[] = [
   { title: "اليوم الدراسي", keys: ["lessons", "homework", "classrooms"] },
-  { title: "العمل المدرسي", keys: ["tasks", "duties", "meetings", "events"] },
+  { title: "العمل المدرسي", keys: ["tasks", "duties", "meetings", "events", "visits", "collab"] },
   { title: "المتابعة والرعاية", keys: ["referral", "talent", "student_plan", "supervision"] },
 ];
 
@@ -63,21 +67,28 @@ export function TeacherShell({ onSwitch }: { onSwitch: () => void }) {
   const [conv, setConv] = useState<Conversation | null>(null);
   const [commTab, setCommTab] = useState<"chats" | "notifications">("chats");
   const [rev, setRev] = useState(0);
-  const setTab = (t: TeacherTab) => { setSec(null); setLesson(null); setConv(null); setTabRaw(t); };
-  const back = () => { if (lesson) { setLesson(null); setRev((v) => v + 1); } else { setSec(null); setConv(null); } };
+  const [newChat, setNewChat] = useState(false);
+  const setTab = (t: TeacherTab) => { setNewChat(false); setSec(null); setLesson(null); setConv(null); setTabRaw(t); };
+  const back = () => { if (lesson) { setLesson(null); setRev((v) => v + 1); } else if (newChat) setNewChat(false); else { setSec(null); setConv(null); } };
 
   useEffect(() => {
     const h = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (lesson || sec || conv) { back(); return true; }
+      if (lesson || sec || conv || newChat) { back(); return true; }
       if (tab !== "home") { setTabRaw("home"); return true; }
       return false;
     });
     return () => h.remove();
-  }, [tab, sec, lesson, conv]);
+  }, [tab, sec, lesson, conv, newChat]);
 
   let screen: React.ReactNode = null;
   if (lesson) screen = <LessonAttendance lesson={lesson} onBack={back} />;
   else if (conv) screen = <Thread conv={conv} onBack={back} />;
+  else if (newChat) screen = <TeacherNewChat onBack={back} onCreated={async (id) => {
+    const rows = await fetchConversations(active?.schoolId ?? "").catch(() => []);
+    setNewChat(false);
+    const c = rows.find((x) => x.id === id);
+    if (c) setConv(c);
+  }} />;
   else if (sec === "lessons") screen = <TodayLessons key={rev} onBack={back} onOpen={setLesson} />;
   else if (sec === "homework") screen = <TeacherHomework onBack={back} />;
   else if (sec === "classrooms") screen = <Classrooms onBack={back} canComment={false} />;
@@ -85,6 +96,8 @@ export function TeacherShell({ onSwitch }: { onSwitch: () => void }) {
   else if (sec === "duties") screen = <TeacherDuties onBack={back} />;
   else if (sec === "meetings") screen = <TeacherMeetings onBack={back} />;
   else if (sec === "events") screen = <Events onBack={back} />;
+  else if (sec === "visits") screen = <TeacherVisits onBack={back} />;
+  else if (sec === "collab") screen = <Collaboration onBack={back} />;
   else if (sec) screen = <EduRecords kind={sec} onBack={back} />;
   else if (tab === "account") screen = <AccountScreen onSwitch={onSwitch} />;
   else if (tab === "schedule") screen = <TeacherSchedule />;
@@ -120,7 +133,7 @@ export function TeacherShell({ onSwitch }: { onSwitch: () => void }) {
               <>
                 <ScreenTitle eyebrow="الطلاب وأولياء الأمور والإدارة" title="التواصل والمحادثات" />
                 <SegmentTabs label="التواصل" value={commTab} onChange={setCommTab} items={[{ key: "chats", label: "المحادثات" }, { key: "notifications", label: "الإشعارات" }]} />
-                <FadeIn key={commTab}>{commTab === "chats" ? <ConversationList role="teacher" onOpen={setConv} /> : <NotificationsList />}</FadeIn>
+                <FadeIn key={commTab}>{commTab === "chats" ? <ConversationList role="teacher" onOpen={setConv} onNew={() => setNewChat(true)} /> : <NotificationsList />}</FadeIn>
               </>
             ) : null}
             {tab === "more" ? (

@@ -5,7 +5,7 @@ import { AppText, Button, Notice, TextField } from "../../components/ui";
 import { Chips, DataState, Panel, Pill, SubScreen } from "../../components/StudentKit";
 import {
   fetchConversations, fetchGuardianContacts, fetchGuardianLinks, fetchMessages, fetchStudentContacts, inbox, KIND_LABEL,
-  markConversationRead, newKey, sendMessage, fetchChatLimits, uploadChatFile, uploadVoice, type ChatLimits, startFamilyConversation, startStudentConversation, type Contact, type Conversation, type Message,
+  markConversationRead, newKey, sendMessage, fetchChatLimits, uploadChatFile, uploadVoice, type ChatLimits, startFamilyConversation, startStudentConversation, fetchTeacherStudents, fetchFamilyContacts, fetchStaffDirectory, startDirectConversation, myUserId, type Contact, type Conversation, type Message,
 } from "../../api/family";
 import { AttachBar, MessageFiles, PendingList, VoiceRecorder, type PickedFile, type VoiceClip } from "./ChatMedia";
 import { useAuth } from "../../hooks/useAuth";
@@ -27,7 +27,7 @@ export const ConversationList: React.FC<{ role: Role | "teacher"; onOpen: (c: Co
         <View style={styles.flex}><Chips label="الصندوق" value={box} onChange={setBox} items={[{ key: "inbox", label: role === "student" ? "رسائلي" : "الوارد" }, { key: "archive", label: "الأرشيف" }]} /></View>
         {onNew ? <Pressable onPress={onNew} accessibilityRole="button" accessibilityLabel="محادثة جديدة" style={styles.plus}><Plus size={20} color={COLORS.primaryForeground} /></Pressable> : null}
       </View>
-      <DataState loading={q.loading} error={q.error} empty={!rows.length} emptyTitle={box === "archive" ? "الأرشيف فارغ" : "لا توجد محادثات"} emptyHint={box === "inbox" && onNew ? "ابدأ محادثة جديدة مع إدارة المدرسة من زر +" : undefined} onRetry={q.reload}>
+      <DataState loading={q.loading} error={q.error} empty={!rows.length} emptyTitle={box === "archive" ? "الأرشيف فارغ" : "لا توجد محادثات"} emptyHint={box === "inbox" && onNew ? (role === "teacher" ? "ابدأ محادثة جديدة من زر +" : "ابدأ محادثة جديدة مع إدارة المدرسة من زر +") : undefined} onRetry={q.reload}>
         <Panel>
           {rows.map((c, i) => (
             <Pressable key={c.id} onPress={() => onOpen(c)} accessibilityRole="button" accessibilityLabel={`${c.title ?? ""}${c.unread ? `، ${c.unread} غير مقروءة` : ""}`} style={({ pressed }) => [styles.conv, i > 0 && styles.border, pressed && { backgroundColor: COLORS.muted }]}>
@@ -167,6 +167,99 @@ export const NewChat: React.FC<{ role: Role; onBack: () => void; onCreated: (id:
       <TextField label="الرسالة الأولى (اختياري)" value={body} onChangeText={setBody} multiline maxLength={4000} />
       {err ? <Notice tone="error">{err}</Notice> : null}
       <Button title="بدء المحادثة" onPress={() => void start()} loading={busy} disabled={!to || (role === "guardian" && !link)} />
+    </SubScreen>
+  );
+};
+
+const ROLE_AR: Record<string, string> = {
+  principal: "مدير المدرسة", vice_principal: "الوكيل", dept_head: "رئيس قسم", supervisor: "مشرف تربوي",
+  student_affairs: "شؤون الطلاب", teacher: "معلم", counselor: "مرشد", nurse: "التوجيه الصحي", security: "الأمن",
+};
+
+/** محادثة المعلم الجديدة: مع ولي أمر طالب من تكليفه الساري، أو مع زميل في مدرسته — كما في المنصة. */
+export const TeacherNewChat: React.FC<{ onBack: () => void; onCreated: (id: string) => void }> = ({ onBack, onCreated }) => {
+  const { active } = useAuth();
+  const school = active?.schoolId ?? "";
+  const [mode, setMode] = useState<"family" | "staff">("family");
+  const [student, setStudent] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [to, setTo] = useState("");
+  const [search, setSearch] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const students = useLoad(() => (mode === "family" ? fetchTeacherStudents(school) : Promise.resolve([])), [mode, school]);
+  const guardians = useLoad(() => (student ? fetchFamilyContacts(student) : Promise.resolve([])), [student]);
+  const staff = useLoad(() => (mode === "staff" ? fetchStaffDirectory(school) : Promise.resolve([])), [mode, school]);
+  const uniq = [...new Map((students.data ?? []).map((x) => [x.student_id, x])).values()];
+  const term = search.trim();
+  const shownStudents = uniq.filter((x) => !term || x.full_name.includes(term));
+  const shownStaff = (staff.data ?? []).filter((x) => !term || x.full_name.includes(term));
+  const start = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const me = (await myUserId()) ?? "";
+      let last = "";
+      if (mode === "staff") last = await startDirectConversation(school, to);
+      else for (const g of picked) {
+        const id = await startFamilyConversation(student, g, me);
+        last = id;
+        if (body.trim()) await sendMessage(id, body.trim(), newKey()).catch(() => undefined);
+      }
+      if (mode === "staff" && body.trim()) await sendMessage(last, body.trim(), newKey()).catch(() => undefined);
+      if (last) onCreated(last);
+    } catch (e) { setErr(errorText(e)); } finally { setBusy(false); }
+  };
+  const radio = (on: boolean) => <View style={[styles.radio, on && styles.radioOn]} />;
+  return (
+    <SubScreen title="محادثة جديدة" eyebrow={mode === "family" ? "ولي أمر طالب" : "زميل في المدرسة"} onBack={onBack}>
+      <Chips label="نوع المحادثة" value={mode} onChange={(v) => { setMode(v); setTo(""); setPicked([]); setStudent(""); setSearch(""); }} items={[{ key: "family", label: "ولي أمر طالب" }, { key: "staff", label: "زميل" }]} />
+      <TextField label="بحث بالاسم" value={search} onChangeText={setSearch} />
+      {mode === "family" ? (
+        <>
+          <AppText variant="label" weight="bold">الطالب (من طلاب تكليفك الساري)</AppText>
+          <DataState loading={students.loading} error={students.error} empty={!shownStudents.length} emptyTitle="لا يوجد طلاب ضمن تكليفك الساري" onRetry={students.reload}>
+            <Panel>
+              {shownStudents.slice(0, 60).map((x, i) => (
+                <Pressable key={x.student_id} onPress={() => { setStudent(x.student_id); setPicked([]); }} accessibilityRole="radio" accessibilityState={{ checked: student === x.student_id }} style={[styles.conv, i > 0 && styles.border]}>
+                  {radio(student === x.student_id)}
+                  <View style={styles.flex}><AppText variant="bodyStrong">{x.full_name}</AppText><AppText variant="micro" color={COLORS.mutedForeground}>{[x.section && `شعبة ${x.section}`, x.subject].filter(Boolean).join(" · ")}</AppText></View>
+                </Pressable>
+              ))}
+            </Panel>
+          </DataState>
+          {student ? (
+            <DataState loading={guardians.loading} error={guardians.error} empty={!guardians.data?.length} emptyTitle="لا يوجد ولي أمر موثّق ومخوّل بالمتابعة ولديه حساب" onRetry={guardians.reload}>
+              <AppText variant="label" weight="bold">المستلمون</AppText>
+              <Panel>
+                {(guardians.data ?? []).map((g, i) => {
+                  const on = picked.includes(g.guardian_id);
+                  return (
+                    <Pressable key={g.guardian_id} onPress={() => setPicked(on ? picked.filter((y) => y !== g.guardian_id) : [...picked, g.guardian_id])} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={[styles.conv, i > 0 && styles.border]}>
+                      {radio(on)}
+                      <View style={styles.flex}><AppText variant="bodyStrong">{g.full_name}</AppText>{g.relationship ? <AppText variant="micro" color={COLORS.mutedForeground}>{g.relationship}</AppText> : null}</View>
+                    </Pressable>
+                  );
+                })}
+              </Panel>
+            </DataState>
+          ) : null}
+        </>
+      ) : (
+        <DataState loading={staff.loading} error={staff.error} empty={!shownStaff.length} emptyTitle="لا يوجد زملاء" onRetry={staff.reload}>
+          <Panel>
+            {shownStaff.slice(0, 80).map((x, i) => (
+              <Pressable key={x.user_id} onPress={() => setTo(x.user_id)} accessibilityRole="radio" accessibilityState={{ checked: to === x.user_id }} style={[styles.conv, i > 0 && styles.border]}>
+                {radio(to === x.user_id)}
+                <View style={styles.flex}><AppText variant="bodyStrong">{x.full_name}</AppText><AppText variant="micro" color={COLORS.mutedForeground}>{[x.role && (ROLE_AR[x.role] ?? ""), x.department].filter(Boolean).join(" · ")}</AppText></View>
+              </Pressable>
+            ))}
+          </Panel>
+        </DataState>
+      )}
+      <TextField label="الرسالة الأولى (اختياري)" value={body} onChangeText={setBody} multiline maxLength={4000} />
+      {err ? <Notice tone="error">{err}</Notice> : null}
+      <Button title="بدء المحادثة" onPress={() => void start()} loading={busy} disabled={mode === "staff" ? !to : !picked.length} />
     </SubScreen>
   );
 };
