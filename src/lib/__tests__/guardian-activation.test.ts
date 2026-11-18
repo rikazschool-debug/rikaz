@@ -1,6 +1,6 @@
-jest.mock("@/lib/guardian-login", () => ({ GUARDIAN_DOMAIN: "guardian.rikaz.app" }), { virtual: true });
+jest.mock("@/lib/guardian-login", () => ({ GUARDIAN_DOMAIN: "guardian.rikaz.app", STAFF_DOMAIN: "staff.rikaz.app" }), { virtual: true });
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ensureGuardianLoginEmail } = require("../../../docs/vps-guardian-activation/src/lib/guardian-activation.server");
+const { ensureGuardianLoginEmail } = require("../../../docs/vps-id-first-login/src/lib/guardian-activation.server");
 
 function fakeAdmin(user: { id: string; email?: string | null } | null, lookup: { user_id: string }[] = []) {
   const updates: unknown[] = [];
@@ -29,6 +29,11 @@ describe("guardian activation login email (review package, fake data)", () => {
     const sb = fakeAdmin({ id: "u3", email: null }, [{ user_id: "other" }]);
     expect(await ensureGuardianLoginEmail(sb, "u3", "1000000003")).toBe("conflict");
     expect(sb.updates).toEqual([]);
+  });
+  it("uses the staff login address for a staged teacher", async () => {
+    const sb = fakeAdmin({ id: "u5", email: null });
+    expect(await ensureGuardianLoginEmail(sb, "u5", "1000000071", "teacher")).toBe("ok");
+    expect(sb.updates).toEqual([{ email: "1000000071@staff.rikaz.app", email_confirm: true }]);
   });
   it("rejects a malformed ID", async () => {
     const sb = fakeAdmin({ id: "u4", email: null });

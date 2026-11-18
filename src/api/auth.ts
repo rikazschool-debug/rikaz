@@ -1,3 +1,4 @@
+import { toLoginEmail } from "../lib/loginEmail";
 import { supabase } from "./client";
 import { CONFIG } from "../config";
 import { clearActiveKey } from "../lib/storage";
@@ -144,6 +145,20 @@ export async function verifyIdCode(challenge: string, codeInput: string, portal:
     throw new LoginError(MSG.server, { stage: "verify-code", status: result.status });
   }
   await openWithToken(result.body.token);
+}
+
+/** الدخول بكلمة المرور كما في موقع ركاز (رقم الهوية/الجوال لولي الأمر، أو اسم المستخدم/البريد للكادر). */
+export async function passwordSignIn(loginInput: string, password: string) {
+  const v = loginInput.trim();
+  if (!v || !password) throw new LoginError(MSG.badCredentials);
+  await supabase.auth.signOut({ scope: "local" });
+  if (!CONFIG.readOnlyLoginTest) await clearActiveKey();
+  const { error } = await supabase.auth.signInWithPassword({ email: toLoginEmail(v), password });
+  if (error) {
+    if (/rate limit|too many/i.test(error.message)) throw new LoginError(MSG.rateLimited);
+    if (/fetch|network/i.test(error.message)) throw new LoginError(MSG.network);
+    throw new LoginError(MSG.badCredentials);
+  }
 }
 
 /** مالك المنصة: كلمة مروره الخاصة، ثم التأكد من سجله في platform_admins وإلا يُخرج فورًا */
