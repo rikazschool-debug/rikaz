@@ -17,12 +17,21 @@ language plpgsql stable security definer set search_path = public, auth as $$
 declare n text := _idl_nid(_nid); uids uuid[]; gids uuid[]; phones text[]; auth_phone text;
 begin
   if n is null or n !~ '^[12]\d{9}$' then return query select null::uuid, null::text, null::uuid, 'invalid'; return; end if;
-  select array_agg(distinct a.user_id), array_agg(distinct a.subject_id)
-    into uids, gids
+  -- all staged logins for this ID decide which school record is meant (must be exactly one record)
+  select array_agg(distinct a.subject_id) into gids
     from account_setup a join guardians g on g.id = a.subject_id
    where a.kind = 'guardian' and a.need_phone and a.completed_at is null
      and g.user_id is null and _idl_nid(g.national_id) = n;
-  if coalesce(array_length(uids,1),0) = 0 then return query select null::uuid, null::text, null::uuid, 'no_account'; return; end if;
+  if coalesce(array_length(gids,1),0) = 0 then return query select null::uuid, null::text, null::uuid, 'no_account'; return; end if;
+  -- a school that changes the mobile re-stages a new login for the same record; older staged logins with the old mobile are ignored
+  select array_agg(distinct a.user_id) into uids
+    from account_setup a join guardians g on g.id = a.subject_id join auth.users u on u.id = a.user_id
+   where a.kind = 'guardian' and a.need_phone and a.completed_at is null
+     and g.user_id is null and _idl_nid(g.national_id) = n
+     and _idl_phone(g.phone) is not null and _idl_phone(u.phone) = _idl_phone(g.phone);
+  if array_length(gids,1) > 1 then return query select null::uuid, null::text, null::uuid, 'conflict_account'; return; end if;
+  if coalesce(array_length(uids,1),0) = 0 then return query select null::uuid, null::text, null::uuid,
+    case when exists(select 1 from guardians x where _idl_nid(x.national_id) = n and _idl_phone(x.phone) is not null) then 'conflict_phone' else 'no_phone' end; return; end if;
   if array_length(uids,1) > 1 or array_length(gids,1) > 1 then return query select null::uuid, null::text, null::uuid, 'conflict_account'; return; end if;
   -- every school record with this ID must agree on one mobile; the code goes only there
   select array_agg(distinct _idl_phone(g.phone)) filter (where _idl_phone(g.phone) is not null) into phones
@@ -45,12 +54,21 @@ language plpgsql stable security definer set search_path = public, auth as $$
 declare n text := _idl_nid(_nid); uids uuid[]; tids uuid[]; phones text[]; auth_phone text;
 begin
   if n is null or n !~ '^[12]\d{9}$' then return query select null::uuid, null::text, null::uuid, 'invalid'; return; end if;
-  select array_agg(distinct a.user_id), array_agg(distinct a.subject_id)
-    into uids, tids
+  -- all staged logins for this ID decide which school record is meant (must be exactly one record)
+  select array_agg(distinct a.subject_id) into tids
     from account_setup a join teachers t on t.id = a.subject_id
    where a.kind = 'teacher' and a.need_phone and not a.need_password and a.completed_at is null
      and t.user_id is null and _idl_nid(t.national_id) = n;
-  if coalesce(array_length(uids,1),0) = 0 then return query select null::uuid, null::text, null::uuid, 'no_account'; return; end if;
+  if coalesce(array_length(tids,1),0) = 0 then return query select null::uuid, null::text, null::uuid, 'no_account'; return; end if;
+  -- a school that changes the mobile re-stages a new login for the same record; older staged logins with the old mobile are ignored
+  select array_agg(distinct a.user_id) into uids
+    from account_setup a join teachers t on t.id = a.subject_id join auth.users u on u.id = a.user_id
+   where a.kind = 'teacher' and a.need_phone and not a.need_password and a.completed_at is null
+     and t.user_id is null and _idl_nid(t.national_id) = n
+     and _idl_phone(t.phone) is not null and _idl_phone(u.phone) = _idl_phone(t.phone);
+  if array_length(tids,1) > 1 then return query select null::uuid, null::text, null::uuid, 'conflict_account'; return; end if;
+  if coalesce(array_length(uids,1),0) = 0 then return query select null::uuid, null::text, null::uuid,
+    case when exists(select 1 from teachers x where _idl_nid(x.national_id) = n and _idl_phone(x.phone) is not null) then 'conflict_phone' else 'no_phone' end; return; end if;
   if array_length(uids,1) > 1 or array_length(tids,1) > 1 then return query select null::uuid, null::text, null::uuid, 'conflict_account'; return; end if;
   select array_agg(distinct _idl_phone(t.phone)) filter (where _idl_phone(t.phone) is not null) into phones
     from teachers t where _idl_nid(t.national_id) = n;

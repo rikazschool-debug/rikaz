@@ -94,6 +94,16 @@ do $$ declare r jsonb; v jsonb; begin
   v := _idl_verify((r->>'challenge')::uuid, '888888');
   perform t_ok((v->>'needs_login_email')::boolean, 'retry still adds the missing login email');
 end $$;
+-- 12. school changed the mobile: an older staged login with the old mobile + a new one with the current mobile → the current one is used
+insert into auth.users(id, phone) values ('00000000-0000-0000-0000-000000000061','966500000098'),('00000000-0000-0000-0000-000000000062','966500000097');
+insert into guardians(id, school_id, national_id, phone) values ('00000000-0000-0000-0000-0000000000f6','00000000-0000-0000-0000-0000000000b1','1000000066','0500000097');
+insert into account_setup(user_id, school_id, kind, subject_id, need_phone) select u, '00000000-0000-0000-0000-0000000000b1', 'guardian', '00000000-0000-0000-0000-0000000000f6', true
+  from unnest(array['00000000-0000-0000-0000-000000000061','00000000-0000-0000-0000-000000000062']::uuid[]) u;
+do $$ declare r jsonb; begin
+  perform t_reset_cooldown();
+  r := t_issue('1000000066','606060');
+  perform t_ok(r->>'error' is null and (r->>'activation')::boolean and r->>'user_id' = '00000000-0000-0000-0000-000000000062' and r->>'phone' = '966500000097', 're-staged after mobile change → current staged login, code to current mobile');
+end $$;
 -- 10. auth mobile differs from school record → refused at issue
 select t_ok(t_issue('1000000004','111111')->>'error' = 'conflict_phone', 'staged login with another mobile → conflict_phone');
 -- 11. two staged logins for one ID → refused
