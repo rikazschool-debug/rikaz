@@ -9,5 +9,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "exclude": ["node_modules", "docs/vps-auth-overlay", "babel.config.js"]
+  "exclude": ["node_modules", "dist", "docs/vps-auth-overlay", "babel.config.js"]
 }
