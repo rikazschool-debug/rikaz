@@ -3,10 +3,10 @@ import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextIn
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ExternalLink, MessageCircle, ShieldCheck } from "lucide-react-native";
-import { Brand } from "../components/Brand";
+import { RikazLogo } from "../components/RikazLogo";
 import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT } from "../components/AccountEntrySelector";
 import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
-import { COLORS, RADIUS, SPACING } from "../theme/tokens";
+import { COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
 import { CONFIG } from "../config";
 import { digitsOnly, RESEND_SECONDS } from "../lib/identity";
 import { loginErrorMessage, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
@@ -26,15 +26,25 @@ export const LoginScreen: React.FC = () => {
         keyboardDismissMode="interactive"
       >
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-          <Brand size={64} />
-          <AppText variant="title" color={COLORS.primary} style={styles.heroTitle}>
+          <View style={styles.logoTile} accessible accessibilityRole="header" accessibilityLabel="ركاز، منظومة الإدارة التعليمية الذكية">
+            <RikazLogo size={56} />
+            <View style={styles.logoDot} />
+          </View>
+          <AppText variant="display" color={COLORS.primary} align="center" style={styles.heroTitle}>
+            ركاز
+          </AppText>
+          <AppText variant="bodyStrong" color={COLORS.foreground} align="center">
             منظومة الإدارة التعليمية الذكية
+          </AppText>
+          <AppText variant="caption" color={COLORS.mutedForeground} align="center">
+            الدخول الموحد للطلاب وأولياء الأمور والكادر التعليمي
           </AppText>
         </View>
 
         <View style={styles.sheet}>
           <AccountEntrySelector value={entry} onChange={setEntry} />
           <Card raised style={styles.formCard}>
+            <View style={styles.formAccent} />
             <View style={styles.descRow}>
               <View style={styles.dot} />
               <AppText variant="caption" color={COLORS.mutedForeground} style={styles.flex}>
@@ -50,7 +60,12 @@ export const LoginScreen: React.FC = () => {
               <CodeLogin key={entry} portal={entry} title={meta.title} />
             )}
           </Card>
-
+          <View style={styles.helpRow}>
+            <ShieldCheck size={16} color={COLORS.mutedForeground} />
+            <AppText variant="caption" color={COLORS.mutedForeground} style={styles.flexShrink}>
+              تواجه صعوبة في الدخول؟ تواصل مع إدارة مدرستك.
+            </AppText>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -249,9 +264,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: SPACING.xs,
   },
-  heroTitle: { marginTop: SPACING.lg, textAlign: "center" },
+  heroTitle: { marginTop: SPACING.lg },
+  logoTile: { width: 96, height: 96, borderRadius: RADIUS.xl, backgroundColor: COLORS.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.raised },
+  logoDot: { position: "absolute", top: -4, left: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.accent, borderWidth: 3, borderColor: COLORS.background },
+  formAccent: { position: "absolute", top: 0, left: 0, right: 0, height: 4, backgroundColor: COLORS.primary },
+  helpRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, paddingHorizontal: SPACING.lg },
+  flexShrink: { flexShrink: 1 },
   sheet: { paddingHorizontal: SPACING.lg, gap: SPACING.lg, width: "100%", maxWidth: 560, alignSelf: "center" },
-  formCard: { gap: SPACING.lg, padding: SPACING.lg },
+  formCard: { gap: SPACING.lg, padding: SPACING.lg, paddingTop: SPACING.xl, overflow: "hidden" },
   descRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 7 },
   gap: { gap: SPACING.lg },

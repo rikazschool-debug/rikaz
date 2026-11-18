@@ -108,7 +108,7 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
                       accessibilityState={{ selected: on, busy: pending === c.key }}
                       accessibilityLabel={`${contextLabel(c)}، ${ACCOUNT_KIND_LABEL[kind]}، ${g.schoolName}`}
                       android_ripple={{ color: COLORS.primaryTint }}
-                      style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, pressed && { backgroundColor: COLORS.muted }]}
+                      style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, on && styles.rowOn, pressed && { backgroundColor: COLORS.muted }]}
                     >
                       <IconTile icon={Icon} tone={on ? "primary" : "muted"} size={44} />
                       <View style={styles.flex}>
@@ -142,6 +142,7 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
 };
 
 const styles = StyleSheet.create({
+  rowOn: { backgroundColor: COLORS.primaryTint },
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   top: { minHeight: 56, paddingHorizontal: SPACING.lg, flexDirection: "row", alignItems: "center" },

@@ -20,3 +20,16 @@ Validation: isolated membership tests, TypeScript checking, and Android/iOS Java
 المصدر في المنصة: `src/lib/roles.ts` (NAV_BY_ROLE)، و`src/routes/_authenticated/app/route.tsx`، و`src/lib/workspace-perms.ts`. يفتح كل قسم صفحته في منصة ركاز على الويب إلى أن يُبنى داخل التطبيق، والخادم يعيد التحقق من الصلاحية عند فتحه.
 
 أقسام تعتمد على قدرات تشغيلية تحسبها المنصة من خدمات إضافية (المشتريات، الصيانة، القبول، المكالمات، الموارد البشرية، ملفي الوظيفي) لا تظهر في التطبيق حاليًا.
+
+
+## Visual reference (Stitch export)
+
+The uploaded Stitch export is the layout reference for the mobile screens. The app keeps the Rikaz platform palette (teal primary, amber accent) and the Cairo font; the reference's royal-blue palette and IBM Plex font are intentionally not used.
+
+Applied from the reference:
+- Sign-in: logo in a raised white tile, product name and subtitle, three account-type cards with the active one filled, form card with a top accent strip, short help line.
+- Home: greeting bar with logo tile, profile card with status pill, gradient card for the active school and role with the switch action, "أقسامك" grid of raised tiles grouped by category.
+- Account: profile card with initial avatar and account-type pill, grouped settings list, sign-out action.
+- Switch school/role: the current role row is highlighted.
+
+Not applied: screens that need data the app does not load yet (timetable, grades, homework, digital card, permission requests). They stay in the web platform until built natively; no sample data is shown.

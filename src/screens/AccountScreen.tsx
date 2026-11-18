@@ -3,17 +3,17 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ArrowLeftRight, ChevronLeft, ExternalLink, LogOut, UserRound } from "lucide-react-native";
-import { AppText, Button, Card, Divider, IconTile } from "../components/ui";
+import { AppText, Button, Card, Divider, IconTile, SectionHeader, StatusPill } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { ACCOUNT_KIND_LABEL, accountKind, contextLabel } from "../lib/contexts";
 import { displayableEmail } from "../lib/identity";
 import { CONFIG } from "../config";
-import { COLORS, RADIUS, SPACING } from "../theme/tokens";
+import { COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
 import type { LucideIcon } from "lucide-react-native";
 
 const Row: React.FC<{ icon: LucideIcon; title: string; subtitle?: string; onPress: () => void }> = ({ icon, title, subtitle, onPress }) => (
   <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title} android_ripple={{ color: COLORS.primaryTint }} style={({ pressed }) => [styles.row, pressed && { backgroundColor: COLORS.muted }]}>
-    <IconTile icon={icon} tone="muted" size={40} />
+    <IconTile icon={icon} tone="primary" size={44} />
     <View style={styles.flex}>
       <AppText variant="bodyStrong">{title}</AppText>
       {subtitle ? (
@@ -44,9 +44,15 @@ export const AccountScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) 
       <StatusBar style="dark" />
       <AppText variant="title">حسابي</AppText>
 
-      <Card style={styles.profile}>
+      <Card raised style={styles.profile}>
         <View style={styles.avatar}>
-          <UserRound size={30} color={COLORS.primary} />
+          {fullName?.trim() ? (
+            <AppText variant="title" color={COLORS.primary}>
+              {fullName.trim().charAt(0)}
+            </AppText>
+          ) : (
+            <UserRound size={30} color={COLORS.primary} />
+          )}
         </View>
         <View style={styles.flex}>
           <AppText variant="headline" numberOfLines={2}>
@@ -57,14 +63,11 @@ export const AccountScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) 
               {email}
             </AppText>
           ) : null}
-          {kind ? (
-            <AppText variant="caption" color={COLORS.mutedForeground}>
-              {ACCOUNT_KIND_LABEL[kind]}
-            </AppText>
-          ) : null}
+          {kind ? <StatusPill label={ACCOUNT_KIND_LABEL[kind]} tone="primary" style={styles.kindPill} /> : null}
         </View>
       </Card>
 
+      <SectionHeader title="الحساب والصفة" style={styles.listHead} />
       <View style={styles.list}>
         {active ? (
           <Row
@@ -88,8 +91,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxxl, gap: SPACING.lg },
   profile: { flexDirection: "row", alignItems: "center", gap: SPACING.lg },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
+  kindPill: { marginTop: SPACING.xs },
+  listHead: { marginBottom: -SPACING.sm },
+  avatar: { width: 64, height: 64, borderRadius: RADIUS.lg, backgroundColor: COLORS.primaryTint, alignItems: "center", justifyContent: "center" },
   ltr: { writingDirection: "ltr" },
-  list: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
+  list: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden", ...SHADOWS.card },
   row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, minHeight: 68 },
 });

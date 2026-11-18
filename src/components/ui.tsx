@@ -207,9 +207,9 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
             accessibilityLabel={o.label}
             style={[styles.segmentItem, on && styles.segmentOn]}
           >
-            <Icon size={22} color={on ? COLORS.primary : COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
+            <Icon size={22} color={on ? COLORS.primaryForeground : COLORS.mutedForeground} strokeWidth={on ? 2.2 : 1.8} />
             <Text
-              style={[styles.segmentText, { color: on ? COLORS.primary : COLORS.mutedForeground, fontFamily: on ? FONTS.bold : FONTS.medium }]}
+              style={[styles.segmentText, { color: on ? COLORS.primaryForeground : COLORS.foreground, fontFamily: on ? FONTS.bold : FONTS.medium }]}
             >
               {o.label}
             </Text>
@@ -238,6 +238,33 @@ export const LinkButton: React.FC<{ title: string; onPress: () => void; disabled
       {title}
     </AppText>
   </Pressable>
+);
+
+/** شارة حالة بشكل كبسولة: نقطة ملونة ونص قصير */
+export const StatusPill: React.FC<{ label: string; tone?: "success" | "primary" | "muted"; style?: StyleProp<ViewStyle> }> = ({ label, tone = "success", style }) => {
+  const c = tone === "success" ? { bg: COLORS.successTint, fg: COLORS.success } : tone === "primary" ? { bg: COLORS.primaryTint, fg: COLORS.primary } : { bg: COLORS.muted, fg: COLORS.mutedForeground };
+  return (
+    <View style={[styles.pill, { backgroundColor: c.bg }, style]}>
+      <View style={[styles.pillDot, { backgroundColor: c.fg }]} />
+      <AppText variant="micro" weight="semibold" color={c.fg}>
+        {label}
+      </AppText>
+    </View>
+  );
+};
+
+/** عنوان قسم في الصفحة مع وصف اختياري */
+export const SectionHeader: React.FC<{ title: string; caption?: string; style?: StyleProp<ViewStyle> }> = ({ title, caption, style }) => (
+  <View style={[styles.sectionHead, style]}>
+    <AppText variant="headline" accessibilityRole="header">
+      {title}
+    </AppText>
+    {caption ? (
+      <AppText variant="caption" color={COLORS.mutedForeground}>
+        {caption}
+      </AppText>
+    ) : null}
+  </View>
 );
 
 export const Divider: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => <View style={[styles.divider, style]} />;
@@ -289,24 +316,27 @@ const styles = StyleSheet.create({
   noticeIcon: { marginTop: 2 },
   segment: {
     flexDirection: "row",
-    backgroundColor: COLORS.muted,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xs + 2,
-    gap: SPACING.xs,
+    gap: SPACING.sm,
   },
   segmentItem: {
     flex: 1,
-    minHeight: 64,
-    borderRadius: RADIUS.md,
+    minHeight: 76,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.xs,
     gap: 2,
   },
-  segmentOn: { backgroundColor: COLORS.primaryTint, ...SHADOWS.card },
+  segmentOn: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, ...SHADOWS.raised },
   segmentText: { fontSize: 13, lineHeight: 20, textAlign: "center" },
   iconTile: { borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center" },
   link: { minHeight: TOUCH.min, justifyContent: "center", paddingHorizontal: SPACING.sm },
+  pill: { flexDirection: "row", alignItems: "center", gap: SPACING.xs + 2, alignSelf: "flex-start", borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xxs + 1 },
+  pillDot: { width: 7, height: 7, borderRadius: 4 },
+  sectionHead: { gap: SPACING.xxs, paddingHorizontal: SPACING.xs },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border },
 });

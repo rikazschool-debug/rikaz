@@ -9,7 +9,7 @@ import { AppText } from "./ui";
 import { CONFIG } from "../config";
 import type { Role, SchoolPerms } from "../api/types";
 import { groupSections, isFamilyRole, SECTION_GROUP_LABEL, SECTIONS, sectionLabel, sectionsFor } from "../lib/sections";
-import { COLORS, RADIUS, SPACING } from "../theme/tokens";
+import { COLORS, RADIUS, SHADOWS, SPACING } from "../theme/tokens";
 
 const ICONS: Record<string, LucideIcon> = {
   Award, Bell, BookOpen, Briefcase, CalendarDays, ClipboardCheck, ClipboardList, DoorOpen, FileBarChart, GraduationCap,
@@ -32,9 +32,12 @@ export const RoleSections: React.FC<{ role: Role; perms: SchoolPerms | null; loa
     <View style={styles.wrap}>
       {groups.map((g) => (
         <View key={g.group} style={styles.group}>
-          <AppText variant="bodyStrong" accessibilityRole="header">
-            {SECTION_GROUP_LABEL[g.group]}
-          </AppText>
+          <View style={styles.groupHead}>
+            <View style={styles.groupMark} />
+            <AppText variant="label" color={COLORS.mutedForeground} accessibilityRole="header">
+              {SECTION_GROUP_LABEL[g.group]}
+            </AppText>
+          </View>
           <View style={styles.grid}>
             {g.keys.map((k) => {
               const def = SECTIONS[k];
@@ -50,9 +53,9 @@ export const RoleSections: React.FC<{ role: Role; perms: SchoolPerms | null; loa
                   style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
                 >
                   <View style={styles.icon}>
-                    <Icon size={22} color={COLORS.primary} strokeWidth={2} />
+                    <Icon size={24} color={COLORS.primary} strokeWidth={2} />
                   </View>
-                  <AppText variant="label" align="center" style={styles.tileText}>
+                  <AppText variant="micro" weight="semibold" align="center" style={styles.tileText}>
                     {label}
                   </AppText>
                 </Pressable>
@@ -72,12 +75,14 @@ const styles = StyleSheet.create({
   wrap: { gap: SPACING.xl },
   loading: { paddingVertical: SPACING.xxl, alignItems: "center" },
   group: { gap: SPACING.md },
+  groupHead: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
+  groupMark: { width: 4, height: 16, borderRadius: 2, backgroundColor: COLORS.accent },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.md },
   tile: {
     flexGrow: 1,
     flexBasis: "30%",
-    minWidth: 100,
-    minHeight: 104,
+    minWidth: 96,
+    minHeight: 108,
     padding: SPACING.md,
     gap: SPACING.sm,
     alignItems: "center",
@@ -86,8 +91,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   pressed: { opacity: 0.75, backgroundColor: COLORS.primaryTint },
-  icon: { width: 44, height: 44, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.primaryTint },
+  icon: { width: 48, height: 48, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.primaryTint },
   tileText: { flexShrink: 1 },
 });
