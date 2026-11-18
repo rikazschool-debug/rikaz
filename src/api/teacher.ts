@@ -79,15 +79,15 @@ export const saveEval = (student: string, teacher: string, answers: Record<strin
   rpc<unknown>("ev_g_save", { _student: student, _teacher: teacher, _answers: answers, _comment: comment });
 
 /* ---------- إنشاء واجب: المقررات التي للمعلم عليها تكليف ساري فقط، والحفظ/النشر بدوال المنصة ---------- */
-export type MyCourse = { id: string; subject: string; section: string };
+export type MyCourse = { id: string; subject: string; section: string; section_id?: string; year_id?: string };
 export async function fetchMyCourses(schoolId: string): Promise<MyCourse[]> {
-  const { data, error } = await supabase.from("courses").select("id, subjects(name), sections(name)").eq("school_id", schoolId);
+  const { data, error } = await supabase.from("courses").select("id, section_id, year_id, subjects(name), sections(name)").eq("school_id", schoolId);
   if (error) throw error;
-  const rows = (data ?? []) as unknown as { id: string; subjects: { name: string } | null; sections: { name: string } | null }[];
+  const rows = (data ?? []) as unknown as { id: string; section_id: string; year_id: string; subjects: { name: string } | null; sections: { name: string } | null }[];
   const mine = await Promise.all(rows.map(async (c) => {
     const r = await supabase.rpc("is_course_teacher" as never, { _course: c.id } as never);
     if (r.error) throw r.error;
-    return r.data ? { id: c.id, subject: c.subjects?.name ?? "", section: c.sections?.name ?? "" } : null;
+    return r.data ? { id: c.id, subject: c.subjects?.name ?? "", section: c.sections?.name ?? "", section_id: c.section_id, year_id: c.year_id } : null;
   }));
   return mine.filter(Boolean) as MyCourse[];
 }
@@ -102,3 +102,32 @@ export async function createHomework(payload: Record<string, unknown>, publish: 
   if (p.error) throw Object.assign(new Error("saved_not_published"), { cause: p.error, id });
   return { id, published: p.data as unknown as string };
 }
+
+/** طلاب الشعبة النشطون للمقرر (لاختيار طلاب بعينهم)؛ RLS في المنصة تحدد ما يظهر. */
+export type RosterStudent = { id: string; name: string };
+export async function fetchRoster(c: MyCourse): Promise<RosterStudent[]> {
+  if (!c.section_id || !c.year_id) return [];
+  const { data, error } = await supabase.from("enrollments").select("student_id, students(full_name)").eq("section_id", c.section_id).eq("year_id", c.year_id).eq("status", "active");
+  if (error) throw error;
+  return ((data ?? []) as unknown as { student_id: string; students: { full_name: string } | null }[])
+    .map((r) => ({ id: r.student_id, name: r.students?.full_name ?? "" }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+}
+
+/** إنشاء اختبار: نفس exam_draft_save في المنصة، ثم publish_homework عند الطلب. */
+export async function createExam(args: Record<string, unknown>, publish: boolean): Promise<{ id: string; published: string | null }> {
+  const id = await rpc<string>("exam_draft_save", args);
+  if (!publish) return { id, published: null };
+  const p = await supabase.rpc("publish_homework" as never, { _id: id } as never);
+  if (p.error) throw Object.assign(new Error("saved_not_published"), { cause: p.error, id });
+  return { id, published: p.data as unknown as string };
+}
+
+/** إجراءات المعلم على واجب قائم — بنفس دوال صفحة الواجب في المنصة، والخادم يتحقق من الحالة والصلاحية. */
+export const publishHw = (id: string) => rpc<string>("publish_homework", { _id: id });
+export const reviseHw = (id: string, instructions: string, dueIso: string, note: string) =>
+  rpc<unknown>("revise_homework", { _id: id, _d: { instructions, due_at: dueIso }, _note: note });
+export const extendHw = (id: string, dueIso: string, reason: string) =>
+  rpc<unknown>("extend_homework", { _id: id, _student: null, _due: dueIso, _reason: reason });
+export const setHwStatus = (id: string, status: "closed" | "archived" | "cancelled", reason: string | null) =>
+  rpc<unknown>("set_homework_status", { _id: id, _status: status, _reason: reason });

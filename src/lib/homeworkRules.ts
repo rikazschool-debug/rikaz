@@ -59,6 +59,7 @@ export const unanswered = (qs: { type: string }[], a: Record<number, number[] | 
 export type HwForm = {
   course_id: string; title: string; instructions: string; types: string[]; from: { d: string; t: string } | null; due: { d: string; t: string } | null;
   late_policy: "none" | "allow" | "until"; late_until: { d: string; t: string } | null; graded: boolean; max_score: string; allow_resubmit: boolean; max_attempts: string;
+  audience?: "all" | "selected"; students?: string[]; criteria?: { label: string; max: string }[];
 };
 /** وقت المدرسة (الرياض +03:00) إلى ISO؛ بلا اختيار = null. */
 export const riyadhIso = (v: { d: string; t: string } | null) => (v ? new Date(`${v.d}T${v.t}:00+03:00`).toISOString() : null);
@@ -77,13 +78,20 @@ export function hwFormError(f: HwForm, now = Date.now()): string | null {
   if (f.late_policy === "until" && (!f.late_until || Date.parse(riyadhIso(f.late_until)!) <= due)) return "الموعد النهائي للتأخر يجب أن يكون بعد موعد التسليم";
   if (f.graded && !(Number(f.max_score) > 0)) return "الدرجة الكاملة يجب أن تكون أكبر من صفر";
   if (f.allow_resubmit && !(Number.isInteger(Number(f.max_attempts)) && Number(f.max_attempts) >= 2)) return "عدد المحاولات 2 أو أكثر";
+  if (f.audience === "selected" && !f.students?.length) return "اختر طالبًا واحدًا على الأقل";
+  const crit = usedCriteria(f);
+  if (crit.some((c) => !(Number(c.max) > 0))) return "درجة كل معيار يجب أن تكون أكبر من صفر";
+  if (crit.length && criteriaTotal(crit.map((c) => c.max)) !== Number(f.max_score)) return "مجموع درجات المعايير يجب أن يساوي الدرجة الكاملة";
   return null;
 }
+/** المعايير المعبّأة فقط، وتُهمل إن كان الواجب بلا درجة. */
+export const usedCriteria = (f: HwForm) => (f.graded ? (f.criteria ?? []).filter((c) => c.label.trim()) : []);
 export function hwPayload(f: HwForm) {
   return {
     course_id: f.course_id, title: f.title.trim(), instructions: f.instructions, grading_notes: "", submission_types: f.types,
     available_from: riyadhIso(f.from), due_at: riyadhIso(f.due), late_policy: f.late_policy, late_until: f.late_policy === "until" ? riyadhIso(f.late_until) : null,
-    max_score: f.graded ? f.max_score : null, criteria: [], allow_resubmit: f.allow_resubmit, max_attempts: f.allow_resubmit ? Number(f.max_attempts) : 1,
-    audience: "all", students: [], remind_hours: null, file_max_bytes: null,
+    max_score: f.graded ? f.max_score : null, criteria: usedCriteria(f).map((c) => ({ label: c.label.trim(), max: Number(c.max) })),
+    allow_resubmit: f.allow_resubmit, max_attempts: f.allow_resubmit ? Number(f.max_attempts) : 1,
+    audience: f.audience ?? "all", students: f.audience === "selected" ? f.students ?? [] : [], remind_hours: null, file_max_bytes: null,
   };
 }

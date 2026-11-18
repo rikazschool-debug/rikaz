@@ -16,6 +16,7 @@ import {
 import { COLORS, SPACING } from "../../theme/tokens";
 import { HomeworkDetail } from "../shared/HomeworkDetail";
 import { NewHomework } from "./NewHomework";
+import { NewTest } from "./NewTest";
 import { fetchVisits, VISIT_REASON, VISIT_SOURCE, VISIT_STATUS } from "../../api/family";
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
@@ -154,12 +155,13 @@ export const TeacherHomework: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [creating, setCreating] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const q = useLoad(() => fetchTeacherHomework(active?.schoolId ?? "", kind), [active?.schoolId, kind, open, creating]);
+  if (creating && kind === "test") return <NewTest onBack={() => setCreating(false)} onCreated={(id, m) => { setCreating(false); setNote(m); setOpen(id); }} />;
   if (creating) return <NewHomework onBack={() => setCreating(false)} onCreated={(id, m) => { setCreating(false); setNote(m); setOpen(id); }} />;
   if (open) return <HomeworkDetail id={open} role="teacher" onBack={() => setOpen(null)} />;
   return (
     <SubScreen title="الواجبات والاختبارات" eyebrow="ما أنشأته لطلابك" onBack={onBack} refreshing={q.loading} onRefresh={q.reload}>
       <SegmentTabs label="النوع" value={kind} onChange={setKind} items={[{ key: "homework", label: "الواجبات" }, { key: "test", label: "الاختبارات" }]} />
-      {kind === "homework" ? <Button title="واجب جديد" onPress={() => { setNote(null); setCreating(true); }} /> : null}
+      <Button title={kind === "test" ? "اختبار جديد" : "واجب جديد"} onPress={() => { setNote(null); setCreating(true); }} />
       {note ? <Notice tone="success">{note}</Notice> : null}
       <DataState loading={q.loading} error={q.error} empty={!q.data?.length} emptyTitle={kind === "test" ? "لا توجد اختبارات" : "لا توجد واجبات"} onRetry={q.reload}>
         <View style={styles.list}>

@@ -13,6 +13,10 @@ import { useStudentQuery } from "../student/useStudentData";
 import { schoolTime, SUB_STATUS } from "../../lib/studentData";
 import { CHOICE_TYPES, examAnswers, toggleChoice, unanswered, criteriaTotal, filterRows, GRADE_STATUS, readyToPublish, safeLink, scoreError, submitLabel, type Att, type GradeFilter } from "../../lib/homeworkRules";
 import { AttachBar } from "./ChatMedia";
+import { extendHw, publishHw, reviseHw, setHwStatus } from "../../api/teacher";
+import { When } from "../teacher/NewHomework";
+import { riyadhIso } from "../../lib/homeworkRules";
+import { toRiyadhPick } from "../../lib/examRules";
 import { COLORS, SPACING } from "../../theme/tokens";
 
 const TYPE_LABEL: Record<string, string> = { text: "نص", file: "ملفات", link: "رابط", paper: "ورقي" };
@@ -68,11 +72,68 @@ export const HomeworkDetail: React.FC<{ id: string; role: "student" | "guardian"
         {h ? (
           <>
             <Hero h={h} />
+            {role === "teacher" ? <TeacherActions h={h} onDone={q.reload} /> : null}
             {role === "teacher" ? <GradingPanel h={h} /> : <MinePanel h={h} readOnly={role === "guardian"} />}
           </>
         ) : null}
       </DataState>
     </SubScreen>
+  );
+};
+
+/* ---------- إجراءات المعلم: نشر المسودة، التعديل بعد النشر، التمديد، الإغلاق، الأرشفة، الإلغاء ---------- */
+type Mode = null | "revise" | "extend" | "cancel";
+const TeacherActions: React.FC<{ h: HwDetail; onDone: () => void }> = ({ h, onDone }) => {
+  const [mode, setMode] = useState<Mode>(null);
+  const [instr, setInstr] = useState(h.instructions ?? "");
+  const [due, setDue] = useState(toRiyadhPick(h.due_at));
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const s = h.status;
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true); setMsg(null);
+    try { const r = await fn(); setMsg({ tone: "success", text: r === "scheduled" ? "جُدول النشر في وقت الإتاحة" : ok }); setMode(null); setReason(""); onDone(); }
+    catch (e) { setMsg({ tone: "error", text: errorText(e) }); } finally { setBusy(false); }
+  };
+  const open = (m: Mode) => { setMsg(null); setReason(""); setInstr(h.instructions ?? ""); setDue(toRiyadhPick(h.due_at)); setMode(mode === m ? null : m); };
+  const dueIso = riyadhIso(due);
+  if (!["draft", "scheduled", "published", "closed"].includes(s)) return null;
+  return (
+    <Panel style={styles.actions}>
+      <AppText variant="bodyStrong" weight="extrabold">إدارة {h.kind === "test" ? "الاختبار" : "الواجب"}</AppText>
+      <View style={styles.actRow}>
+        {s === "draft" ? <Button title="نشر" loading={busy && !mode} disabled={busy} onPress={() => void run(() => publishHw(h.id), "نُشر وأُبلغ الطلاب وأولياء أمورهم")} /> : null}
+        {["scheduled", "published", "closed"].includes(s) ? <Button title="تعديل بعد النشر" variant="secondary" disabled={busy} onPress={() => open("revise")} /> : null}
+        {["published", "closed"].includes(s) ? <Button title="تمديد للجميع" variant="secondary" disabled={busy} onPress={() => open("extend")} /> : null}
+        {s === "published" ? <Button title="إغلاق التسليم" variant="secondary" disabled={busy} onPress={() => void run(() => setHwStatus(h.id, "closed", null), "أُغلق التسليم")} /> : null}
+        {["published", "closed"].includes(s) ? <Button title="أرشفة" variant="secondary" disabled={busy} onPress={() => void run(() => setHwStatus(h.id, "archived", null), "أُرشف")} /> : null}
+        {["draft", "scheduled", "published"].includes(s) ? <Button title="إلغاء" variant="destructive" disabled={busy} onPress={() => open("cancel")} /> : null}
+      </View>
+      {mode === "revise" ? (
+        <View style={styles.form}>
+          <TextField label="التعليمات" value={instr} onChangeText={setInstr} multiline maxLength={8000} />
+          <When label="موعد التسليم" value={due} onChange={setDue} />
+          <TextField label="سبب التعديل (يظهر للطلاب)" value={reason} onChangeText={setReason} maxLength={500} />
+          <AppText variant="micro" color={COLORS.mutedForeground}>لا يمكن تغيير الدرجة القصوى أو نوع التسليم بعد وجود تسليمات، ولا تقديم الموعد إلى وقت مضى.</AppText>
+          <Button title="حفظ التعديل" loading={busy} disabled={busy || !dueIso} onPress={() => void run(() => reviseHw(h.id, instr, dueIso!, reason.trim()), "حُفظ التعديل كإصدار جديد وأُبلغ الطلاب")} />
+        </View>
+      ) : null}
+      {mode === "extend" ? (
+        <View style={styles.form}>
+          <When label="الموعد الجديد للجميع" value={due} onChange={setDue} />
+          <TextField label="السبب" value={reason} onChangeText={setReason} maxLength={500} />
+          <Button title="تمديد" loading={busy} disabled={busy || !dueIso} onPress={() => void run(() => extendHw(h.id, dueIso!, reason.trim()), "مُدد الموعد وأُبلغ الطلاب")} />
+        </View>
+      ) : null}
+      {mode === "cancel" ? (
+        <View style={styles.form}>
+          <TextField label="سبب الإلغاء (إجراء موثق)" value={reason} onChangeText={setReason} maxLength={500} />
+          <Button title="تأكيد الإلغاء" variant="destructive" loading={busy} disabled={busy || !reason.trim()} onPress={() => void run(() => setHwStatus(h.id, "cancelled", reason.trim()), "أُلغي")} />
+        </View>
+      ) : null}
+      {msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : null}
+    </Panel>
   );
 };
 
@@ -295,6 +356,9 @@ const Grader: React.FC<{ h: HwDetail; r: GradedRow; onDone: (msg: string) => voi
 };
 
 const styles = StyleSheet.create({
+  actions: { paddingVertical: SPACING.md, gap: SPACING.sm },
+  actRow: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
+  form: { gap: SPACING.sm },
   flex: { flex: 1 },
   gap: { gap: SPACING.md },
   gapSm: { gap: SPACING.sm },
