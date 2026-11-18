@@ -1,8 +1,7 @@
-import { toLoginEmail } from "../lib/loginEmail";
 import { supabase } from "./client";
 import { CONFIG } from "../config";
 import { clearActiveKey } from "../lib/storage";
-import { digitsOnly, isValidEmail, isValidNationalId, isValidOtp } from "../lib/identity";
+import { digitsOnly, isValidNationalId, isValidOtp } from "../lib/identity";
 import {
   authDiagnosticDetails,
   authFailureSummary,
@@ -16,7 +15,6 @@ import { serverLoginMessage } from "../lib/loginMessages";
  * طرق الدخول المعتمدة في المنصة (src/routes/auth.tsx):
  * - الطالب: رقم الهوية/الإقامة + رقم الطالب في C-Smart، بلا رمز.
  * - ولي الأمر، والإدارة والموظفون: رقم الهوية/الإقامة ثم رمز من 6 أرقام على واتساب للجوال المسجل.
- * - مالك المنصة: البريد وكلمة المرور، ثم التحقق من أنه مالك المنصة فعلًا.
  * الدخول بكلمة المرور للموظفين غير متاح في المنصة إلا للدعوات، فلا يُعرض هنا.
  */
 
@@ -37,10 +35,7 @@ const MSG = {
   network: "تعذّر الاتصال بالخدمة. تأكد من الإنترنت ثم حاول مرة أخرى.",
   unavailable: "الدخول برقم الهوية غير متاح في التطبيق حاليًا. استخدم منصة ركاز على الويب.",
   server: "حدث خطأ غير متوقع. حاول مرة أخرى.",
-  ownerEmail: "أدخل بريد مالك المنصة.",
-  ownerPassword: "كلمة المرور 8 أحرف على الأقل.",
   badCredentials: "بيانات الدخول غير صحيحة.",
-  notOwner: "هذا الحساب لا يملك صلاحية مالك المنصة.",
   rateLimited: "محاولات كثيرة؛ انتظر قليلًا ثم حاول مجددًا.",
 };
 
@@ -147,43 +142,6 @@ export async function verifyIdCode(challenge: string, codeInput: string, portal:
   await openWithToken(result.body.token);
 }
 
-/** الدخول بكلمة المرور كما في موقع ركاز (رقم الهوية/الجوال لولي الأمر، أو اسم المستخدم/البريد للكادر). */
-export async function passwordSignIn(loginInput: string, password: string) {
-  const v = loginInput.trim();
-  if (!v || !password) throw new LoginError(MSG.badCredentials);
-  await supabase.auth.signOut({ scope: "local" });
-  if (!CONFIG.readOnlyLoginTest) await clearActiveKey();
-  const { error } = await supabase.auth.signInWithPassword({ email: toLoginEmail(v), password });
-  if (error) {
-    if (/rate limit|too many/i.test(error.message)) throw new LoginError(MSG.rateLimited);
-    if (/fetch|network/i.test(error.message)) throw new LoginError(MSG.network);
-    throw new LoginError(MSG.badCredentials);
-  }
-}
-
-/** مالك المنصة: كلمة مروره الخاصة، ثم التأكد من سجله في platform_admins وإلا يُخرج فورًا */
-export async function platformOwnerSignIn(emailInput: string, password: string) {
-  const email = emailInput.trim().toLowerCase();
-  if (!isValidEmail(email)) throw new LoginError(MSG.ownerEmail);
-  if (password.length < 8) throw new LoginError(MSG.ownerPassword);
-  await supabase.auth.signOut({ scope: "local" });
-  await clearActiveKey();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    if (/rate limit|too many/i.test(error.message)) throw new LoginError(MSG.rateLimited);
-    if (/fetch|network/i.test(error.message)) throw new LoginError(MSG.network);
-    throw new LoginError(MSG.badCredentials);
-  }
-  const { data: admin, error: roleError } = await supabase
-    .from("platform_admins")
-    .select("user_id")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-  if (roleError || !admin) {
-    await supabase.auth.signOut();
-    throw new LoginError(MSG.notOwner);
-  }
-}
 
 export function loginErrorMessage(e: unknown): string {
   if (!(e instanceof LoginError)) return MSG.server;

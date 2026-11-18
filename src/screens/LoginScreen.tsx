@@ -12,7 +12,7 @@ import { AppText, Button, LinkButton, Notice, TextField } from "../components/ui
 import { COLORS, LOGIN_COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
 import { CONFIG } from "../config";
 import { digitsOnly, isValidNationalId, RESEND_SECONDS } from "../lib/identity";
-import { loginErrorMessage, passwordSignIn, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
+import { loginErrorMessage, requestIdCode, studentSignIn, verifyIdCode } from "../api/auth";
 
 export const LoginScreen: React.FC = () => {
   const [entry, setEntry] = useState<AccountEntry | null>(null);
@@ -214,42 +214,7 @@ const StudentForm: React.FC = () => {
 };
 
 /** ولي الأمر والموظفون: رقم الهوية ثم رمز من 6 أرقام على واتساب */
-/** ولي الأمر والكادر: برمز واتساب، أو بكلمة المرور كما في موقع ركاز. */
-const PortalLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
-  const [mode, setMode] = useState<"code" | "password">("code");
-  return (
-    <View style={styles.gap}>
-      {mode === "code" ? <CodeLogin portal={portal} /> : <PasswordLogin portal={portal} />}
-      <LinkButton
-        title={mode === "code" ? "الدخول بكلمة المرور" : "الدخول برمز التحقق"}
-        onPress={() => setMode(mode === "code" ? "password" : "code")}
-      />
-    </View>
-  );
-};
-
-const PasswordLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
-  const [login, setLogin] = useState("");
-  const [pw, setPw] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  async function go() {
-    setBusy(true); setMsg(null);
-    try { await passwordSignIn(login, pw); } catch (e) { setMsg(loginErrorMessage(e)); } finally { setBusy(false); }
-  }
-  return (
-    <View style={styles.gap}>
-      <TextField
-        label={portal === "guardian" ? "رقم الهوية أو الجوال" : "اسم المستخدم أو البريد أو رقم الهوية"}
-        value={login} onChangeText={setLogin} autoCapitalize="none" autoCorrect={false} ltr
-        textContentType="username" autoComplete="username"
-      />
-      <TextField label="كلمة المرور" value={pw} onChangeText={setPw} secureTextEntry ltr textContentType="password" autoComplete="password" onSubmitEditing={() => void go()} />
-      {msg ? <Notice tone="error">{msg}</Notice> : null}
-      <Button title="تسجيل الدخول" icon={LogIn} loading={busy} disabled={!login.trim() || !pw || !CONFIG.idLoginEnabled} onPress={() => void go()} />
-    </View>
-  );
-};
+const PortalLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => <CodeLogin portal={portal} />;
 
 const CodeLogin: React.FC<{ portal: "guardian" | "staff" }> = ({ portal }) => {
   const [nid, setNid] = useState("");
