@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ExternalLink, MessageCircle, ShieldCheck } from "lucide-react-native";
 import { RikazLogo } from "../components/RikazLogo";
 import { AccountEntry, AccountEntrySelector, ENTRY_CONTENT } from "../components/AccountEntrySelector";
+import { OtpCodeInput } from "../components/OtpCodeInput";
 import { AppText, Button, Card, Divider, LinkButton, Notice, TextField } from "../components/ui";
 import { LOGIN_COLORS, RADIUS, SPACING } from "../theme/tokens";
 import { CONFIG } from "../config";
@@ -32,9 +33,15 @@ export const LoginScreen: React.FC = () => {
           colors={[LOGIN_COLORS.background, LOGIN_COLORS.surfaceLow, LOGIN_COLORS.background]}
           style={styles.heroGradient}
         >
-          <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+          <View style={[styles.hero, { paddingTop: insets.top + SPACING.xl }]}>
+            <View style={styles.eyebrow}>
+              <View style={styles.eyebrowDot} />
+              <AppText variant="micro" color={LOGIN_COLORS.secondary}>
+                بوابة الحسابات المدرسية
+              </AppText>
+            </View>
             <View style={styles.logoTile}>
-              <RikazLogo size={68} color={LOGIN_COLORS.primary} />
+              <RikazLogo size={46} color={LOGIN_COLORS.primary} />
             </View>
             <AppText variant="headline" weight="extrabold" color={LOGIN_COLORS.primary} style={styles.brandName}>
               رِكَازْ
@@ -79,7 +86,13 @@ export const LoginScreen: React.FC = () => {
                   </Notice>
                 ) : null}
                 {entry === "student" ? (
-                  <StudentForm key="student" />
+                  CONFIG.studentLoginEnabled ? (
+                    <StudentForm key="student" />
+                  ) : (
+                    <Notice tone="warning" title="اختبار الطالب متوقف مؤقتًا">
+                      مسار الـVPS قد يُكمل إعداد الطالب الأولي عند الدخول. أوقفناه حتى لا تتغير بيانات الحساب دون إذن.
+                    </Notice>
+                  )
                 ) : (
                   <CodeLogin key={entry} portal={entry} title={meta.title} />
                 )}
@@ -128,7 +141,7 @@ const StudentForm: React.FC = () => {
   const noRef = useRef<TextInput>(null);
 
   async function go() {
-    if (!CONFIG.idLoginEnabled) return;
+    if (!CONFIG.studentLoginEnabled) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -175,7 +188,7 @@ const StudentForm: React.FC = () => {
         title="دخول"
         onPress={go}
         loading={busy}
-        disabled={!CONFIG.idLoginEnabled || !isValidNationalId(nid) || !no.trim()}
+        disabled={!CONFIG.studentLoginEnabled || !isValidNationalId(nid) || !no.trim()}
         colors={{ primary: LOGIN_COLORS.primaryContainer, primaryPressed: LOGIN_COLORS.primary, primaryForeground: LOGIN_COLORS.onPrimary }}
       />
     </View>
@@ -276,23 +289,14 @@ const CodeLogin: React.FC<{ portal: "guardian" | "staff"; title: string }> = ({ 
           </AppText>
         </View>
       </View>
-      <TextField
+      <OtpCodeInput
         ref={codeRef}
-        label="رمز التحقق"
         value={code}
         onChangeText={(v) => {
           const c = digitsOnly(v, 6);
           setCode(c);
           if (c.length === 6 && busy === null && CONFIG.idLoginEnabled) void verify(c);
         }}
-        keyboardType="number-pad"
-        maxLength={6}
-        ltr
-        large
-        colors={LOGIN_COLORS}
-        textContentType="oneTimeCode"
-        autoComplete={Platform.OS === "android" ? "sms-otp" : "one-time-code"}
-        placeholder="••••••"
       />
       {msg ? <Notice tone="error">{msg}</Notice> : null}
       <Button
@@ -325,14 +329,29 @@ const styles = StyleSheet.create({
   heroGradient: { width: "100%" },
   hero: {
     paddingHorizontal: SPACING.xxl,
-    paddingBottom: SPACING.xxxl,
+    paddingBottom: SPACING.md,
     alignItems: "center",
-    gap: SPACING.xs + 2,
+    gap: SPACING.xs,
+  },
+  eyebrow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: LOGIN_COLORS.surfaceContainer,
+  },
+  eyebrowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: LOGIN_COLORS.secondary,
   },
   logoTile: {
-    width: 88,
-    height: 88,
-    borderRadius: RADIUS.xl,
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: LOGIN_COLORS.surface,
@@ -342,11 +361,11 @@ const styles = StyleSheet.create({
   },
   brandName: { marginTop: SPACING.xs },
   brandSubtitle: { marginTop: -SPACING.xs, letterSpacing: 0.1 },
-  heroTitle: { marginTop: SPACING.lg, textAlign: "center" },
+  heroTitle: { marginTop: SPACING.md, textAlign: "center" },
   heroDescription: { maxWidth: 320, marginTop: -SPACING.xs },
-  sheet: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, gap: SPACING.lg, width: "100%", maxWidth: 560, alignSelf: "center" },
+  sheet: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, gap: SPACING.md, width: "100%", maxWidth: 560, alignSelf: "center" },
   sectionIntro: { gap: SPACING.xxs, paddingHorizontal: SPACING.xs },
-  formCard: { gap: SPACING.lg, padding: SPACING.lg, borderRadius: RADIUS.xl },
+  formCard: { gap: SPACING.md, padding: SPACING.lg, borderRadius: RADIUS.lg },
   descRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 7 },
   gap: { gap: SPACING.lg },

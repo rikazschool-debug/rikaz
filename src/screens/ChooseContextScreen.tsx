@@ -22,6 +22,8 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
   const insets = useSafeAreaInsets();
   const { contexts, active, chooseContext, contextsLoading, contextsError, reloadContexts, signOut } = useAuth();
   const [pending, setPending] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
 
   const groups = useMemo(() => {
     const map = new Map<string, Group>();
@@ -44,6 +46,15 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
     }
   }
 
+  async function performSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutFailed(false);
+    const succeeded = await signOut();
+    if (!succeeded) setSignOutFailed(true);
+    setSigningOut(false);
+  }
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
@@ -58,6 +69,11 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xxxl }]}>
         <AppText variant="title">{onClose ? "تبديل المدرسة أو الصفة" : "اختر المدرسة والصفة"}</AppText>
+        {signOutFailed ? (
+          <Notice tone="error" title="تعذر تسجيل الخروج">
+            تعذّر إنهاء الجلسة على هذا الجهاز. حاول مرة أخرى.
+          </Notice>
+        ) : null}
         <AppText variant="body" color={COLORS.mutedForeground} style={styles.lead}>
           {onClose
             ? "تُعرض بيانات الصفة التي تختارها فقط، ويُمسح ما يخص الصفة السابقة."
@@ -70,13 +86,26 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
           <View style={styles.stack}>
             <Notice tone="error">تعذّر تحميل صفاتك. تأكد من الاتصال ثم أعد المحاولة.</Notice>
             <Button title="إعادة المحاولة" variant="secondary" onPress={() => void reloadContexts()} />
+            <Button
+              title="تسجيل الخروج"
+              variant="destructive"
+              loading={signingOut}
+              disabled={signingOut}
+              onPress={() => void performSignOut()}
+            />
           </View>
         ) : contexts.length === 0 ? (
           <View style={styles.stack}>
             <Notice tone="warning" title="لا توجد صفة نشطة">
               لا يرتبط حسابك حاليًا بأي مدرسة أو دور نشط. تواصل مع إدارة المدرسة.
             </Notice>
-            <Button title="تسجيل الخروج" variant="secondary" onPress={() => void signOut()} />
+            <Button
+              title="تسجيل الخروج"
+              variant="secondary"
+              loading={signingOut}
+              disabled={signingOut}
+              onPress={() => void performSignOut()}
+            />
           </View>
         ) : (
           groups.map((g) => (
@@ -135,7 +164,14 @@ export const ChooseContextScreen: React.FC<{ onClose?: () => void }> = ({ onClos
             </View>
           ))
         )}
-        {!onClose && contexts.length > 0 ? <LinkButton title="تسجيل الخروج" color={COLORS.mutedForeground} onPress={() => void signOut()} /> : null}
+        {!onClose && contexts.length > 0 ? (
+          <LinkButton
+            title={signingOut ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
+            color={COLORS.mutedForeground}
+            disabled={signingOut}
+            onPress={() => void performSignOut()}
+          />
+        ) : null}
       </ScrollView>
     </View>
   );

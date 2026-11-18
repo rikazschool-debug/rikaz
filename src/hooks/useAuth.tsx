@@ -6,6 +6,13 @@ import { fetchProfileName, fetchSchoolPerms, loadContexts, setActiveContext } fr
 import { AppContext, SchoolPerms } from "../api/types";
 import { contextsSignature, resolveActive } from "../lib/contexts";
 import { clearActiveKey, readActiveKey, saveActiveKey } from "../lib/storage";
+import { CONFIG } from "../config";
+import {
+  authFailureSummary,
+  authDiagnosticDetails,
+  logAuthDiagnostic,
+  type AuthFailureSummary,
+} from "../lib/authDiagnostics";
 
 type Status = "loading" | "signedOut" | "signedIn";
 
@@ -19,6 +26,7 @@ interface AuthValue {
   mustChoose: boolean;
   contextsLoading: boolean;
   contextsError: boolean;
+  contextFailure: AuthFailureSummary | null;
   /** صلاحيات المدرسة النشطة؛ null أثناء التحميل أو عند عدم وجود مدرسة */
   perms: SchoolPerms | null;
   switching: boolean;
@@ -26,7 +34,7 @@ interface AuthValue {
   can: (permKey: string) => boolean;
   chooseContext: (key: string) => Promise<void>;
   reloadContexts: () => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>;
 }
 
 const Ctx = createContext<AuthValue | null>(null);
@@ -41,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [mustChoose, setMustChoose] = useState(false);
   const [contextsLoading, setContextsLoading] = useState(false);
   const [contextsError, setContextsError] = useState(false);
+  const [contextFailure, setContextFailure] = useState<AuthFailureSummary | null>(null);
   const [perms, setPerms] = useState<SchoolPerms | null>(null);
   const [switching, setSwitching] = useState(false);
 
@@ -61,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMustChoose(false);
     setPerms(null);
     setContextsError(false);
+    setContextFailure(null);
     setSwitching(false);
   }, []);
 
@@ -72,13 +82,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeRef.current = c;
     setActive(c);
     setMustChoose(false);
-    await saveActiveKey(c.key);
+    if (!CONFIG.readOnlyLoginTest) await saveActiveKey(c.key);
     try {
+      if (CONFIG.readOnlyLoginTest) {
+        setPerms(null);
+        logAuthDiagnostic("active-context", "skipped");
+        return;
+      }
       await setActiveContext(c);
       const p = c.schoolId ? await fetchSchoolPerms(c.schoolId) : {};
       if (seq === switchSeq.current) setPerms(p);
-    } catch {
-      if (seq === switchSeq.current) setPerms({});
+    } catch (error) {
+      const failure = authFailureSummary(error, "active-context");
+      logAuthDiagnostic(failure.stage, "failure", { status: failure.status });
+      if (seq === switchSeq.current) {
+        setPerms({});
+        setContextFailure(failure);
+      }
     } finally {
       if (seq === switchSeq.current) setSwitching(false);
     }
@@ -95,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sigRef.current = sig;
         setContexts(list);
         setContextsError(false);
+        setContextFailure(null);
         if (initial || changed) {
           const current = activeRef.current;
           const stillValid = current ? list.find((c) => c.key === current.key) : undefined;
@@ -102,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // الصفات تغيّرت والصفة الحالية باقية: إعادة جلب صلاحياتها تحت النطاق الجديد
             await applyContext(stillValid);
           } else {
-            const saved = initial ? await readActiveKey() : null;
+            const saved = initial && !CONFIG.readOnlyLoginTest ? await readActiveKey() : null;
             const { active: next, mustChoose: choose } = resolveActive(list, saved);
             if (next) await applyContext(next);
             else {
@@ -111,11 +132,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setActive(null);
               setPerms(null);
               setMustChoose(choose);
-              await clearActiveKey();
+              if (!CONFIG.readOnlyLoginTest) await clearActiveKey();
             }
           }
         }
-      } catch {
+      } catch (error) {
+        const failure = authFailureSummary(error, "context-load");
+        logAuthDiagnostic(failure.stage, "failure", { status: failure.status });
+        setContextFailure(failure);
         if (initial) setContextsError(true);
       } finally {
         if (initial) setContextsLoading(false);
@@ -176,20 +200,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshContexts]);
 
   const signOut = useCallback(async () => {
-    resetAll();
+    // Sign out this app instance only: the test must not revoke server sessions elsewhere.
     await clearActiveKey();
     try {
-      await supabase.auth.signOut();
-    } catch {
-      await supabase.auth.signOut({ scope: "local" });
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) {
+        logAuthDiagnostic("session", "failure", authDiagnosticDetails(error));
+        return false;
+      }
+      resetAll();
+      setSession(null);
+      setStatus("signedOut");
+      return true;
+    } catch (error) {
+      logAuthDiagnostic("session", "failure", authDiagnosticDetails(error));
+      return false;
     }
   }, [resetAll]);
 
   const can = useCallback((k: string) => !!perms?.[k], [perms]);
 
   const value = useMemo<AuthValue>(
-    () => ({ status, session, fullName, contexts, active, mustChoose, contextsLoading, contextsError, perms, switching, can, chooseContext, reloadContexts, signOut }),
-    [status, session, fullName, contexts, active, mustChoose, contextsLoading, contextsError, perms, switching, can, chooseContext, reloadContexts, signOut],
+    () => ({ status, session, fullName, contexts, active, mustChoose, contextsLoading, contextsError, contextFailure, perms, switching, can, chooseContext, reloadContexts, signOut }),
+    [status, session, fullName, contexts, active, mustChoose, contextsLoading, contextsError, contextFailure, perms, switching, can, chooseContext, reloadContexts, signOut],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

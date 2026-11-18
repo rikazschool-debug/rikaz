@@ -16,7 +16,6 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   ...(hasWorkspaceNodeModules ? [workspaceNodeModules] : []),
 ];
-config.resolver.disableHierarchicalLookup = true;
 config.resolver.unstable_enableSymlinks = true;
 
 module.exports = config;

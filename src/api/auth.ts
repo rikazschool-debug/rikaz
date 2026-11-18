@@ -2,6 +2,13 @@ import { supabase } from "./client";
 import { CONFIG } from "../config";
 import { clearActiveKey } from "../lib/storage";
 import { digitsOnly, isValidEmail, isValidNationalId, isValidOtp } from "../lib/identity";
+import {
+  authDiagnosticDetails,
+  authFailureSummary,
+  formatAuthFailure,
+  logAuthDiagnostic,
+  type AuthFailureSummary,
+} from "../lib/authDiagnostics";
 
 /**
  * طرق الدخول المعتمدة في المنصة (src/routes/auth.tsx):
@@ -11,7 +18,15 @@ import { digitsOnly, isValidEmail, isValidNationalId, isValidOtp } from "../lib/
  * الدخول بكلمة المرور للموظفين غير متاح في المنصة إلا للدعوات، فلا يُعرض هنا.
  */
 
-export class LoginError extends Error {}
+export class LoginError extends Error {
+  constructor(
+    message: string,
+    readonly failure?: AuthFailureSummary,
+  ) {
+    super(message);
+    this.name = "LoginError";
+  }
+}
 
 const MSG = {
   invalidId: "أدخل رقم هوية أو إقامة صحيحًا من 10 أرقام.",
@@ -28,11 +43,15 @@ const MSG = {
 };
 
 type IdResponse = { error?: string; challenge?: string; masked?: string; token?: string };
+type IdAuthResult = { body: IdResponse; status: number };
 
 /** نداء نقاط الدخول العامة في المنصة. الخادم يعيد رسائل عربية عامة لا تكشف أي سجل ناقص. */
-async function callPlatform(path: string, body: Record<string, string>): Promise<IdResponse> {
-  if (!CONFIG.idLoginEnabled) throw new LoginError(MSG.unavailable);
+type IdAuthPath = "student-login" | "request-code" | "verify-code";
+
+async function callPlatform(path: IdAuthPath, body: Record<string, string>): Promise<IdAuthResult> {
+  if (!CONFIG.idLoginEnabled) throw new LoginError(MSG.unavailable, { stage: path });
   let res: Response;
+  logAuthDiagnostic(path, "request-started");
   try {
     res = await fetch(`${CONFIG.authUrl}/api/public/auth/${path}`, {
       method: "POST",
@@ -40,53 +59,88 @@ async function callPlatform(path: string, body: Record<string, string>): Promise
       body: JSON.stringify(body),
     });
   } catch {
-    throw new LoginError(MSG.network);
+    logAuthDiagnostic(path, "network-error");
+    throw new LoginError(MSG.network, { stage: path });
   }
-  if (res.status === 404 || res.status === 503) throw new LoginError(MSG.unavailable);
-  if (res.status === 429) throw new LoginError(MSG.rateLimited);
+  if (res.status === 404 || res.status === 503) {
+    logAuthDiagnostic(path, "http-error", { status: res.status });
+    throw new LoginError(MSG.unavailable, { stage: path, status: res.status });
+  }
+  if (res.status === 429) {
+    logAuthDiagnostic(path, "http-error", { status: res.status });
+    throw new LoginError(MSG.rateLimited, { stage: path, status: res.status });
+  }
   let json: IdResponse;
   try {
     json = (await res.json()) as IdResponse;
   } catch {
-    throw new LoginError(MSG.server);
+    logAuthDiagnostic(path, "invalid-json", { status: res.status });
+    throw new LoginError(MSG.server, { stage: path, status: res.status });
   }
-  if (json.error) throw new LoginError(json.error);
-  if (!res.ok) throw new LoginError(MSG.server);
-  return json;
+  if (json.error) {
+    logAuthDiagnostic(path, "api-error", { status: res.status });
+    const message = res.status === 401 || res.status === 403 ? MSG.badCredentials : MSG.server;
+    throw new LoginError(message, { stage: path, status: res.status });
+  }
+  if (!res.ok) {
+    logAuthDiagnostic(path, "http-error", { status: res.status });
+    throw new LoginError(MSG.server, { stage: path, status: res.status });
+  }
+  logAuthDiagnostic(path, "http-success", { status: res.status });
+  return { body: json, status: res.status };
 }
 
-/** فتح حساب موجود برمز الدخول لمرة واحدة، بعد مسح أي جلسة أو صفة سابقة (كما في المنصة) */
+/** فتح الحساب برمز مؤقت مع الحفاظ على تفضيل السياق المحلي أثناء اختبار القراءة فقط */
 async function openWithToken(token: string) {
   await supabase.auth.signOut({ scope: "local" });
-  await clearActiveKey();
-  const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: "magiclink" });
-  if (error) throw new LoginError(MSG.server);
+  if (!CONFIG.readOnlyLoginTest) await clearActiveKey();
+  let session;
+  try {
+    const result = await supabase.auth.verifyOtp({ token_hash: token, type: "magiclink" });
+    if (result.error) throw result.error;
+    session = result.data.session;
+  } catch (error) {
+    logAuthDiagnostic("session", "failure", authDiagnosticDetails(error));
+    throw new LoginError(MSG.server, authFailureSummary(error, "session"));
+  }
+  if (!session) {
+    logAuthDiagnostic("session", "failure");
+    throw new LoginError(MSG.server, { stage: "session" });
+  }
+  logAuthDiagnostic("session", "success");
 }
 
 export async function studentSignIn(nidInput: string, csmartInput: string) {
+  if (!CONFIG.studentLoginEnabled) throw new LoginError(MSG.unavailable);
   const nid = digitsOnly(nidInput);
   const csmart = csmartInput.trim().slice(0, 40);
   if (!nid || !csmart) throw new LoginError(MSG.studentMissing);
   if (!isValidNationalId(nid)) throw new LoginError(MSG.invalidId);
-  const r = await callPlatform("student-login", { nid, csmart });
-  if (!r.token) throw new LoginError(MSG.server);
-  await openWithToken(r.token);
+  const result = await callPlatform("student-login", { nid, csmart });
+  if (!result.body.token) {
+    throw new LoginError(MSG.server, { stage: "student-login", status: result.status });
+  }
+  await openWithToken(result.body.token);
 }
 
 export async function requestIdCode(nidInput: string, portal: "guardian" | "staff") {
   const nid = digitsOnly(nidInput);
   if (!isValidNationalId(nid)) throw new LoginError(MSG.invalidId);
-  const r = await callPlatform("request-code", { nid, portal });
-  if (!r.challenge) throw new LoginError(MSG.server);
-  return { challenge: r.challenge, masked: r.masked ?? "" };
+  const result = await callPlatform("request-code", { nid, portal });
+  if (!result.body.challenge) {
+    throw new LoginError(MSG.server, { stage: "request-code", status: result.status });
+  }
+  return { challenge: result.body.challenge, masked: result.body.masked ?? "" };
 }
 
 export async function verifyIdCode(challenge: string, codeInput: string, portal: "guardian" | "staff") {
   const code = digitsOnly(codeInput, 6);
   if (!isValidOtp(code)) throw new LoginError(MSG.invalidCode);
-  const r = await callPlatform("verify-code", { challenge, code, portal });
-  if (!r.token) throw new LoginError(MSG.server);
-  await openWithToken(r.token);
+  const result = await callPlatform("verify-code", { challenge, code, portal });
+  if (!result.body.token) {
+    throw new LoginError(MSG.server, { stage: "verify-code", status: result.status });
+  }
+  await openWithToken(result.body.token);
 }
 
 /** مالك المنصة: كلمة مروره الخاصة، ثم التأكد من سجله في platform_admins وإلا يُخرج فورًا */
@@ -114,5 +168,6 @@ export async function platformOwnerSignIn(emailInput: string, password: string) 
 }
 
 export function loginErrorMessage(e: unknown): string {
-  return e instanceof LoginError ? e.message : MSG.server;
+  if (!(e instanceof LoginError)) return MSG.server;
+  return e.failure ? `${e.message}\n${formatAuthFailure(e.failure)}` : e.message;
 }

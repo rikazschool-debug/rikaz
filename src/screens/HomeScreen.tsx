@@ -3,12 +3,14 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ArrowLeftRight, Building2 } from "lucide-react-native";
-import { AppText, Button, Card, IconTile } from "../components/ui";
+import { AppText, Button, Card, IconTile, Notice } from "../components/ui";
 import { RikazLogo } from "../components/RikazLogo";
 import { useAuth } from "../hooks/useAuth";
 import { ACCOUNT_KIND_LABEL, accountKind, contextLabel } from "../lib/contexts";
 import { RoleSections } from "../components/RoleSections";
+import { CONFIG } from "../config";
 import { COLORS, RADIUS, SPACING, TOUCH } from "../theme/tokens";
+import { formatAuthFailure } from "../lib/authDiagnostics";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -18,7 +20,7 @@ function greeting(): string {
 /** الرئيسية: الصفة النشطة والتبديل، وأقسام الحساب حسب دوره وصلاحياته */
 export const HomeScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
   const insets = useSafeAreaInsets();
-  const { active, fullName, contexts, switching, contextsLoading, reloadContexts, perms } = useAuth();
+  const { active, fullName, contexts, switching, contextsLoading, contextsError, contextFailure, reloadContexts, perms } = useAuth();
   const firstName = fullName?.trim().split(/\s+/)[0];
   const kind = active ? accountKind(active.role) : "staff";
   const canSwitch = contexts.length > 1;
@@ -51,6 +53,11 @@ export const HomeScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => 
       </View>
 
       <View style={styles.body}>
+        {contextFailure ? (
+          <Notice tone="error" title="تعذر تحميل سياق الحساب">
+            {formatAuthFailure(contextFailure)}
+          </Notice>
+        ) : null}
         <Card raised style={styles.ctxCard}>
           {active ? (
             <>
@@ -80,12 +87,22 @@ export const HomeScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => 
               </View>
               {canSwitch ? <Button title="تبديل المدرسة أو الصفة" variant="secondary" icon={ArrowLeftRight} onPress={onSwitch} /> : null}
             </>
+          ) : contextsLoading ? (
+            <ActivityIndicator color={COLORS.primary} />
+          ) : contextsError ? (
+            <AppText variant="caption" color={COLORS.mutedForeground}>
+              تعذر عرض الحساب حتى اكتمال تحميل العضويات.
+            </AppText>
           ) : (
             <ActivityIndicator color={COLORS.primary} />
           )}
         </Card>
 
-        {active ? (
+        {active && CONFIG.readOnlyLoginTest ? (
+          <Notice tone="warning" title="اختبار محافظ على البيانات">
+            يُعرض السياق من العضويات المقروءة فقط. لم نحدّث السياق النشط أو نحمّل صلاحيات الخادم.
+          </Notice>
+        ) : active ? (
           <Card style={styles.sectionCard}>
             <AppText variant="headline" accessibilityRole="header">
               أقسامك

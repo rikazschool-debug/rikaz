@@ -1,9 +1,9 @@
-import React from "react";
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ArrowLeftRight, ChevronLeft, ExternalLink, LogOut, UserRound } from "lucide-react-native";
-import { AppText, Button, Card, Divider, IconTile } from "../components/ui";
+import { AppText, Button, Card, Divider, IconTile, Notice } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { ACCOUNT_KIND_LABEL, accountKind, contextLabel } from "../lib/contexts";
 import { displayableEmail } from "../lib/identity";
@@ -29,13 +29,30 @@ const Row: React.FC<{ icon: LucideIcon; title: string; subtitle?: string; onPres
 export const AccountScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
   const insets = useSafeAreaInsets();
   const { session, fullName, active, contexts, signOut } = useAuth();
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
   const email = displayableEmail(session?.user?.email);
   const kind = active ? accountKind(active.role) : null;
 
+  async function performSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutFailed(false);
+    const succeeded = await signOut();
+    if (!succeeded) setSignOutFailed(true);
+    setSigningOut(false);
+  }
+
   function confirmSignOut() {
+    setSignOutFailed(false);
+    if (Platform.OS === "web") {
+      setConfirmingSignOut(true);
+      return;
+    }
     Alert.alert("تسجيل الخروج", "سيُمسح من هذا الجهاز كل ما يخص حسابك وصفتك الحالية.", [
       { text: "إلغاء", style: "cancel" },
-      { text: "تسجيل الخروج", style: "destructive", onPress: () => void signOut() },
+      { text: "تسجيل الخروج", style: "destructive", onPress: () => void performSignOut() },
     ]);
   }
 
@@ -78,7 +95,43 @@ export const AccountScreen: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) 
         <Row icon={ExternalLink} title="منصة ركاز على الويب" subtitle="لإدارة بياناتك وبقية الأقسام" onPress={() => void Linking.openURL(`${CONFIG.platformUrl}/app/profile`)} />
       </View>
 
-      <Button title="تسجيل الخروج" variant="destructive" icon={LogOut} onPress={confirmSignOut} style={{ marginTop: SPACING.sm }} />
+      {signOutFailed ? (
+        <Notice tone="error" title="تعذر تسجيل الخروج">
+          تعذّر إنهاء الجلسة على هذا الجهاز. حاول مرة أخرى.
+        </Notice>
+      ) : null}
+      {Platform.OS === "web" && confirmingSignOut ? (
+        <Card style={styles.signOutConfirm}>
+          <AppText variant="label">تأكيد تسجيل الخروج</AppText>
+          <AppText variant="caption" color={COLORS.mutedForeground}>
+            ستُنهي الجلسة في هذا المتصفح فقط، دون تعديل بيانات المدرسة.
+          </AppText>
+          <View style={styles.confirmActions}>
+            <Button
+              title="إلغاء"
+              variant="secondary"
+              disabled={signingOut}
+              onPress={() => setConfirmingSignOut(false)}
+            />
+            <Button
+              title="تأكيد الخروج"
+              variant="destructive"
+              loading={signingOut}
+              onPress={() => void performSignOut()}
+            />
+          </View>
+        </Card>
+      ) : (
+        <Button
+          title="تسجيل الخروج"
+          variant="destructive"
+          icon={LogOut}
+          onPress={confirmSignOut}
+          loading={signingOut}
+          disabled={signingOut}
+          style={{ marginTop: SPACING.sm }}
+        />
+      )}
     </ScrollView>
   );
 };
@@ -92,4 +145,6 @@ const styles = StyleSheet.create({
   ltr: { writingDirection: "ltr" },
   list: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
   row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, minHeight: 68 },
+  signOutConfirm: { gap: SPACING.md },
+  confirmActions: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
 });
