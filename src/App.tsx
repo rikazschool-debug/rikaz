@@ -21,6 +21,10 @@ import { Events } from "./screens/shared/Events";
 import { NewChat, Thread } from "./screens/shared/Conversations";
 import { NotificationsList } from "./screens/shared/Notifications";
 import { SubScreen } from "./components/StudentKit";
+import { STopBar } from "./components/student/SKit";
+import { ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold } from "@expo-google-fonts/readex-pro";
+import { FontSetContext, READEX } from "./theme/fontSet";
+import { S } from "./theme/student";
 import type { Conversation } from "./api/family";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { LoginScreen } from "./screens/LoginScreen";
@@ -81,14 +85,16 @@ const TabBar: React.FC<{ tab: Tab; onChange: (t: Tab) => void }> = ({ tab, onCha
   );
 };
 
-// الترتيب يبدأ من اليمين: حسابي، التواصل، الرئيسية (المنتصف)، الجدول، المزيد
+// تصميم الطالب المعتمد: الترتيب يبدأ من اليمين — الرئيسية، الجدول، التواصل، المزيد، حسابي
 const STUDENT_TABS: BottomItem<StudentTab>[] = [
-  { key: "account", label: "حسابي", icon: UserRound },
-  { key: "comm", label: "التواصل", icon: MessagesSquare },
-  { key: "home", label: "الرئيسية", icon: Home, center: true },
+  { key: "home", label: "الرئيسية", icon: Home },
   { key: "schedule", label: "الجدول", icon: CalendarDays },
+  { key: "comm", label: "التواصل", icon: MessagesSquare },
   { key: "more", label: "المزيد", icon: LayoutGrid },
+  { key: "account", label: "حسابي", icon: UserRound },
 ];
+const STUDENT_TITLES: Record<StudentTab, string> = { home: "الرئيسية", schedule: "الجدول", comm: "التواصل", more: "المزيد", account: "حسابي" };
+const STUDENT_BAR = { active: S.primary, inactive: S.muted, pill: S.mint, surface: S.surface, border: S.border };
 
 const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
   const [tab, setTabRaw] = useState<StudentTab>("home");
@@ -116,7 +122,9 @@ const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
     setSub("thread");
   };
   return (
-    <View style={styles.flex}>
+    <FontSetContext.Provider value={READEX}>
+    <View style={[styles.flex, { backgroundColor: S.canvas }]}>
+      {!sub ? <STopBar title={STUDENT_TITLES[tab]} onBell={() => setSub("notifications")} onAccount={() => setTab("account")} accountActive={tab === "account"} /> : null}
       <View style={styles.flex}>
         {sub === "thread" && conv ? <Thread conv={conv} onBack={back} />
           : sub === "newchat" ? <NewChat role="student" onBack={back} onCreated={(id) => openConv({ id, title: "محادثة جديدة", kind: "student" })} />
@@ -133,8 +141,9 @@ const StudentShell: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
           : tab === "more" ? <StudentMore onOpen={setSub} onTab={setTab} />
           : <StudentAccount onSwitch={onSwitch} />}
       </View>
-      <BottomBar items={STUDENT_TABS} value={tab} onChange={setTab} />
+      <BottomBar items={STUDENT_TABS} value={tab} onChange={setTab} palette={STUDENT_BAR} />
     </View>
+    </FontSetContext.Provider>
   );
 };
 
@@ -180,7 +189,10 @@ const Root: React.FC = () => {
 };
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({ Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold });
+  const [fontsLoaded, fontError] = useFonts({
+    Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold,
+    ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold,
+  });
   return (
     <SafeAreaProvider>
       {fontsLoaded || fontError ? (

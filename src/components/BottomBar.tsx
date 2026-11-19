@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LucideIcon } from "lucide-react-native";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import { pressScale } from "../lib/motion";
-import { COLORS, FONT_SCALE, FONTS, SPACING } from "../theme/tokens";
+import { useFontSet } from "../theme/fontSet";
+import { COLORS, FONT_SCALE, SPACING } from "../theme/tokens";
 
 export interface BottomItem<K extends string> {
   key: K;
@@ -15,15 +16,19 @@ export interface BottomItem<K extends string> {
 }
 
 /** الشريط السفلي المعتمد: أبيض، والرئيسية زر بارز في المنتصف. الترتيب يبدأ من اليمين. */
-export function BottomBar<K extends string>({ items, value, onChange }: { items: BottomItem<K>[]; value: K; onChange: (k: K) => void }) {
+/** ألوان اختيارية للشريط (صفحات الطالب تستخدم لوحة تصميمها)؛ pill = خلفية خفيفة خلف أيقونة العنصر النشط. */
+export type BarPalette = { active: string; inactive: string; pill?: string; surface?: string; border?: string };
+
+export function BottomBar<K extends string>({ items, value, onChange, palette }: { items: BottomItem<K>[]; value: K; onChange: (k: K) => void; palette?: BarPalette }) {
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
+  const F = useFontSet();
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]} accessibilityRole="tablist">
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }, palette?.surface ? { backgroundColor: palette.surface } : null, palette?.border ? { borderTopColor: palette.border } : null]} accessibilityRole="tablist">
       {items.map((it) => {
         const on = it.key === value;
         const Icon = it.icon;
-        const color = on ? COLORS.primary : COLORS.mutedForeground;
+        const color = on ? palette?.active ?? COLORS.primary : palette?.inactive ?? COLORS.mutedForeground;
         return (
           <Pressable
             key={it.key}
@@ -38,9 +43,11 @@ export function BottomBar<K extends string>({ items, value, onChange }: { items:
                 <Icon size={24} color={on ? COLORS.primaryForeground : COLORS.primary} strokeWidth={2.2} />
               </View>
             ) : (
-              <Icon size={22} color={color} strokeWidth={on ? 2.3 : 1.8} />
+              <View style={[styles.iconWrap, on && palette?.pill ? { backgroundColor: palette.pill } : null]}>
+                <Icon size={22} color={color} strokeWidth={on ? 2.3 : 1.8} />
+              </View>
             )}
-            <Text maxFontSizeMultiplier={FONT_SCALE.control} numberOfLines={1} style={[styles.label, { color, fontFamily: on ? FONTS.extrabold : FONTS.semibold }]}>
+            <Text maxFontSizeMultiplier={FONT_SCALE.control} numberOfLines={1} style={[styles.label, { color, fontFamily: on ? F.extrabold : F.semibold }]}>
               {it.label}
             </Text>
           </Pressable>
@@ -68,5 +75,6 @@ const styles = StyleSheet.create({
   center: { width: 58, height: 58, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: COLORS.card, marginTop: -30 },
   centerOn: { backgroundColor: COLORS.primary, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
   centerOff: { backgroundColor: COLORS.card, borderColor: COLORS.border, shadowColor: COLORS.foreground, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 },
+  iconWrap: { minWidth: 52, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   label: { fontSize: 11.5, lineHeight: 17 },
 });

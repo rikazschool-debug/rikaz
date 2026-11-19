@@ -15,6 +15,7 @@
   "dependencies": {
     "@babel/runtime": "^7.29.14",
     "@expo-google-fonts/cairo": "0.2.3",
+    "@expo-google-fonts/readex-pro": "0.4.1",
     "@expo/log-box": "~57.0.5",
     "@expo/metro-runtime": "~57.0.18",
     "@supabase/supabase-js": "^2.45.4",

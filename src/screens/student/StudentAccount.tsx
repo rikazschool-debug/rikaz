@@ -1,29 +1,43 @@
 import React, { useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import { BadgeCheck, GraduationCap, IdCard, LogOut, Mail, MessageSquareMore, Repeat, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, View } from "react-native";
+import { BadgeCheck, ChevronLeft, CircleCheck, ExternalLink, GraduationCap, IdCard, Lock, LogOut, Mail, MessageSquareMore, Repeat, Smartphone, UserRound, type LucideIcon } from "lucide-react-native";
 import { AppText, Button, Notice } from "../../components/ui";
-import { ListRow, openSection, Panel, ScreenTitle, studentStyles } from "../../components/StudentKit";
+import { openSection, WEB_HINT } from "../../components/StudentKit";
+import { SBadge, SScreen, SSection } from "../../components/student/SKit";
 import { useAuth } from "../../hooks/useAuth";
 import { maskNationalId, maskPhone } from "../../lib/mask";
 import { displayableEmail } from "../../lib/identity";
 import { useStudentProfile } from "./useStudentProfile";
-import { COLORS, SPACING } from "../../theme/tokens";
+import { R, S, SHADOW } from "../../theme/student";
+import { SPACING } from "../../theme/tokens";
 
-const InfoRow: React.FC<{ icon: LucideIcon; label: string; value: string | null | undefined; ltr?: boolean; first?: boolean }> = ({ icon: Icon, label, value, ltr, first }) => (
-  <View style={[styles.info, !first && styles.border]} accessible accessibilityLabel={`${label}: ${value || "غير مسجل"}`}>
-    <Icon size={17} color={COLORS.primary} />
-    <AppText variant="caption" color={COLORS.mutedForeground} style={styles.label}>{label}</AppText>
-    <AppText variant="label" weight="bold" color={value ? COLORS.foreground : COLORS.mutedForeground} style={[styles.value, ltr && value ? styles.ltr : null]} numberOfLines={2}>
-      {value || "غير مسجل"}
-    </AppText>
+const InfoRow: React.FC<{ icon: LucideIcon; label: string; value: string | null | undefined; ltr?: boolean; end?: React.ReactNode }> = ({ icon: Icon, label, value, ltr, end }) => (
+  <View style={styles.info} accessible accessibilityLabel={`${label}: ${value || "غير مسجل"}`}>
+    <View style={styles.infoWell}><Icon size={20} color={S.primary} /></View>
+    <View style={styles.flex}>
+      <AppText variant="caption" color={S.text2}>{label}</AppText>
+      <AppText variant="bodyStrong" weight="semibold" color={value ? S.ink : S.muted} style={ltr && value ? styles.ltr : undefined} numberOfLines={2}>
+        {value || "غير مسجل"}
+      </AppText>
+    </View>
+    {end}
   </View>
+);
+
+const ActionRow: React.FC<{ icon: LucideIcon; title: string; subtitle?: string; onPress: () => void; web?: boolean; tone?: "mint" | "blue" }> = ({ icon: Icon, title, subtitle, onPress, web, tone = "mint" }) => (
+  <Pressable onPress={onPress} accessibilityRole={web ? "link" : "button"} accessibilityLabel={subtitle ? `${title}، ${subtitle}` : title} accessibilityHint={web ? WEB_HINT : undefined}
+    style={({ pressed }) => [styles.action, pressed && { backgroundColor: S.mint }]}>
+    <View style={[styles.actionWell, tone === "blue" && { backgroundColor: S.blueWash }]}><Icon size={22} color={tone === "blue" ? "#1E3A8A" : S.primary} /></View>
+    <View style={styles.flex}>
+      <AppText variant="bodyStrong" weight="bold" color={S.ink}>{title}</AppText>
+      {subtitle ? <AppText variant="caption" color={S.text2} numberOfLines={2}>{subtitle}</AppText> : null}
+    </View>
+    {web ? <ExternalLink size={18} color={S.muted} /> : <ChevronLeft size={20} color={S.muted} />}
+  </Pressable>
 );
 
 /** حسابي للطالب: الحقول نفسها في الملف الشخصي بالمنصة (قراءة فقط). */
 export const StudentAccount: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
-  const insets = useSafeAreaInsets();
   const { fullName, active, contexts, signOut } = useAuth();
   const { profile, failed } = useStudentProfile();
   const [confirm, setConfirm] = useState(false);
@@ -47,43 +61,37 @@ export const StudentAccount: React.FC<{ onSwitch: () => void }> = ({ onSwitch })
   }
 
   return (
-    <ScrollView style={studentStyles.screen} contentContainerStyle={[studentStyles.content, { paddingTop: insets.top + SPACING.md, paddingBottom: SPACING.xxxl }]}>
-      <StatusBar style="dark" />
-      <ScreenTitle title="حسابي" />
-      <View style={styles.card}>
+    <SScreen>
+      <View style={styles.hero}>
+        <View style={styles.heroGlow} />
         <View style={styles.photo}>
-          <AppText weight="extrabold" color={COLORS.primaryForeground} style={styles.initial}>{name?.trim().charAt(0) || "ر"}</AppText>
+          <AppText weight="bold" color={S.onPrimary} style={styles.initial}>{name?.trim().charAt(0) || "ر"}</AppText>
         </View>
-        <View style={styles.flex}>
-          <AppText variant="headline" weight="extrabold" numberOfLines={2}>{name || "طالب ركاز"}</AppText>
-          <AppText variant="caption" color={COLORS.mutedForeground} numberOfLines={2}>{profile?.section ? `طالب · ${profile.section}` : "طالب"}</AppText>
-          <View style={styles.ok}>
-            <ShieldCheck size={12} color={COLORS.success} />
-            <AppText variant="micro" weight="bold" color={COLORS.success}>حساب موثّق</AppText>
-          </View>
+        <AppText variant="title" weight="bold" color={S.ink} align="center" numberOfLines={2}>{name || "طالب ركاز"}</AppText>
+        <AppText variant="caption" color={S.text2} align="center" numberOfLines={2}>{profile?.section ? `طالب • ${profile.section}` : "طالب"}</AppText>
+        <View style={styles.chips}>
+          <SBadge label="حساب موثّق" tone="mint" icon={BadgeCheck} />
+          {active?.schoolName ? <SBadge label={active.schoolName} tone="muted" icon={GraduationCap} /> : null}
         </View>
       </View>
 
-      <View style={styles.head}>
-        <AppText variant="bodyStrong" weight="extrabold" accessibilityRole="header">الملف الشخصي</AppText>
-        <AppText variant="micro" color={COLORS.mutedForeground}>بياناتك كما سجلتها المدرسة</AppText>
-      </View>
-      {failed ? <Notice tone="warning">تعذر تحميل بعض بياناتك الآن. اسحب الصفحة لاحقًا للمحاولة مجددًا.</Notice> : null}
-      <Panel>
-        <InfoRow first icon={UserRound} label="الاسم" value={name} />
-        <InfoRow icon={BadgeCheck} label="الحساب" value={active?.schoolName ? `طالب — ${active.schoolName}` : "طالب"} />
-        <InfoRow icon={IdCard} label="رقم الهوية" value={maskNationalId(profile?.national_id)} ltr />
+      <SSection title="الملف الشخصي" end={<AppText variant="micro" color={S.text2}>بياناتك كما سجّلتها المدرسة</AppText>} />
+      {failed ? <Notice tone="warning">تعذر تحميل بعض بياناتك الآن. حاول لاحقًا.</Notice> : null}
+      <View style={styles.panel}>
+        <InfoRow icon={UserRound} label="الاسم الكامل" value={name} />
+        <InfoRow icon={CircleCheck} label="الحساب" value={active?.schoolName ? `طالب — ${active.schoolName}` : "طالب"} />
+        <InfoRow icon={IdCard} label="رقم الهوية الوطنية" value={maskNationalId(profile?.national_id)} ltr end={<Lock size={16} color={S.muted} />} />
         <InfoRow icon={Smartphone} label="الجوال" value={maskPhone(profile?.phone)} ltr />
-        <InfoRow icon={Mail} label="البريد" value={email} ltr />
+        <InfoRow icon={Mail} label="البريد الإلكتروني" value={email} ltr />
         <InfoRow icon={GraduationCap} label="المرحلة / الصف / الشعبة" value={profile?.section} />
-      </Panel>
-      <AppText variant="micro" color={COLORS.mutedForeground}>لتصحيح أي بيان تواصل مع إدارة المدرسة.</AppText>
+      </View>
+      <AppText variant="micro" color={S.text2}>لتصحيح أي بيان تواصل مع إدارة المدرسة.</AppText>
 
-      <AppText variant="bodyStrong" weight="extrabold" accessibilityRole="header">الحساب والصفة</AppText>
-      <Panel>
-        {contexts.length > 1 ? <ListRow first icon={Repeat} title="تبديل الصفة" subtitle={active?.schoolName ? `طالب · ${active.schoolName}` : undefined} onPress={onSwitch} /> : null}
-        <ListRow first={contexts.length <= 1} icon={MessageSquareMore} title="إعدادات المحادثات" web onPress={() => openSection("communication")} />
-      </Panel>
+      <SSection title="الحساب والصفة" />
+      <View style={styles.actions}>
+        {contexts.length > 1 ? <ActionRow icon={Repeat} title="تبديل الصفة" subtitle={active?.schoolName ? `طالب • ${active.schoolName}` : undefined} onPress={onSwitch} /> : null}
+        <ActionRow icon={MessageSquareMore} tone="blue" title="إعدادات المحادثات" subtitle="الخصوصية والتنبيهات" web onPress={() => openSection("communication")} />
+      </View>
 
       {signOutFailed ? <Notice tone="error">تعذر تسجيل الخروج. حاول مرة أخرى.</Notice> : null}
       {confirm ? (
@@ -95,24 +103,30 @@ export const StudentAccount: React.FC<{ onSwitch: () => void }> = ({ onSwitch })
           </View>
         </View>
       ) : (
-        <Button title="تسجيل الخروج" variant="destructive" icon={LogOut} loading={busy} onPress={askSignOut} />
+        <Pressable onPress={askSignOut} disabled={busy} accessibilityRole="button" accessibilityLabel="تسجيل الخروج" style={({ pressed }) => [styles.logout, pressed && { opacity: 0.85 }]}>
+          {busy ? <ActivityIndicator color={S.danger} /> : <LogOut size={20} color={S.danger} />}
+          <AppText variant="bodyStrong" weight="bold" color={S.danger}>تسجيل الخروج</AppText>
+        </Pressable>
       )}
-    </ScrollView>
+    </SScreen>
   );
 };
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { flexDirection: "row", alignItems: "center", gap: SPACING.lg, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 20, padding: SPACING.lg },
-  photo: { width: 64, height: 64, borderRadius: 22, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
-  initial: { fontSize: 26, lineHeight: 36 },
-  ok: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: COLORS.successTint, borderRadius: 999, paddingHorizontal: SPACING.sm, marginTop: 2 },
-  head: { flexDirection: "row", alignItems: "baseline", gap: SPACING.sm, flexWrap: "wrap" },
-  info: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, paddingVertical: SPACING.md },
-  border: { borderTopWidth: 1, borderTopColor: COLORS.border },
-  label: { flexShrink: 0 },
-  value: { flex: 1, textAlign: "left" },
-  ltr: { writingDirection: "ltr" },
-  confirm: { gap: SPACING.md, backgroundColor: COLORS.destructiveTint, borderRadius: 16, padding: SPACING.lg },
+  ltr: { writingDirection: "ltr", textAlign: "right" },
+  hero: { alignItems: "center", gap: SPACING.xs, backgroundColor: S.surface, borderRadius: R.card + 8, padding: SPACING.xl, overflow: "hidden", borderWidth: 1, borderColor: S.hairline, ...SHADOW.l1 },
+  heroGlow: { position: "absolute", bottom: -120, end: -60, width: 260, height: 260, borderRadius: 130, backgroundColor: S.mint },
+  photo: { width: 112, height: 112, borderRadius: 28, backgroundColor: S.primary, alignItems: "center", justifyContent: "center", marginBottom: SPACING.sm, ...SHADOW.l2 },
+  initial: { fontSize: 52, lineHeight: 70 },
+  chips: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: SPACING.sm, marginTop: SPACING.sm },
+  panel: { backgroundColor: S.surface, borderRadius: R.card + 8, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: S.hairline, ...SHADOW.l1 },
+  info: { flexDirection: "row", alignItems: "center", gap: SPACING.md, paddingVertical: SPACING.md },
+  infoWell: { width: 48, height: 48, borderRadius: 24, backgroundColor: S.mint, alignItems: "center", justifyContent: "center" },
+  actions: { gap: SPACING.md },
+  action: { flexDirection: "row", alignItems: "center", gap: SPACING.md, backgroundColor: S.surface, borderRadius: R.card + 8, padding: SPACING.lg, minHeight: 80, borderWidth: 1, borderColor: S.hairline, ...SHADOW.l1 },
+  actionWell: { width: 56, height: 56, borderRadius: 28, backgroundColor: S.mint, alignItems: "center", justifyContent: "center" },
+  logout: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, minHeight: 64, borderRadius: R.chip, backgroundColor: S.dangerWash, borderWidth: 1, borderColor: S.dangerBorder },
+  confirm: { gap: SPACING.md, backgroundColor: S.dangerWash, borderRadius: 16, padding: SPACING.lg },
   confirmRow: { flexDirection: "row", gap: SPACING.md },
 });

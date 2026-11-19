@@ -17,6 +17,9 @@ importers:
       '@expo-google-fonts/cairo':
         specifier: 0.2.3
         version: 0.2.3
+      '@expo-google-fonts/readex-pro':
+        specifier: 0.4.1
+        version: 0.4.1
       '@expo/log-box':
         specifier: ~57.0.5
         version: 57.0.5(@expo/dom-webview@57.0.1)(expo@57.0.33)(react-native@0.86.3(@babel/core@7.29.13)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
@@ -528,6 +531,9 @@ packages:
 
   '@expo-google-fonts/cairo@0.2.3':
     resolution: {integrity: sha512-z4FoaGpwudrPbFTbA/QgZTn7kHXhlI7QhLLEZqeG8PkMGeHbaqufJ6W6uvsp6yK1DVCILM0o2s8JGf/I2RFwnw==}
+
+  '@expo-google-fonts/readex-pro@0.4.1':
+    resolution: {integrity: sha512-BADsKySd3E/KIHvm5rHNvaRGTM2WmJ6EgnLAaj3ksgV+wyBbRaOSvqik2gYh00vb74AUSZGmvei/YeAv3Korsw==}
 
   '@expo/cli@57.0.34':
     resolution: {integrity: sha512-bVicshFxfoAupsxrFnR9MB8nU1w6Pv6kBiPro6PiFj6930WYe+ZFlTZsHDrKrdyZWWv75Tq8GWsYN+SDw+XTiA==}
@@ -3824,6 +3830,8 @@ snapshots:
   '@bcoe/v8-coverage@0.2.3': {}
 
   '@expo-google-fonts/cairo@0.2.3': {}
+
+  '@expo-google-fonts/readex-pro@0.4.1': {}
 
   '@expo/cli@57.0.34(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.18)(expo-constants@57.0.24(expo@57.0.33)(react-native@0.86.3(@babel/core@7.29.13)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3)))(expo-font@57.0.4(expo@57.0.33)(react-native@0.86.3(@babel/core@7.29.13)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(expo@57.0.33)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.13)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)':
     dependencies:

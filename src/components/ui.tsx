@@ -17,6 +17,7 @@ import {
 import { AlertCircle, CheckCircle2, Info, type LucideIcon } from "lucide-react-native";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import { pressScale } from "../lib/motion";
+import { useFontSet } from "../theme/fontSet";
 import { COLORS, FONTS, FontWeightName, RADIUS, SHADOWS, SPACING, TOUCH, TYPE, TypeVariant } from "../theme/tokens";
 
 /* ------------------------------------------------------------------ النص */
@@ -30,9 +31,10 @@ type AppTextProps = TextProps & {
 
 export const AppText: React.FC<AppTextProps> = ({ variant = "body", weight, color = COLORS.foreground, align, style, ...rest }) => {
   const t = TYPE[variant];
+  const F = useFontSet();
   return (
     <Text
-      style={[{ fontFamily: FONTS[weight ?? t.weight], fontSize: t.fontSize, lineHeight: t.lineHeight, color, textAlign: align, writingDirection: "rtl" }, style]}
+      style={[{ fontFamily: F[weight ?? t.weight], fontSize: t.fontSize, lineHeight: t.lineHeight, color, textAlign: align, writingDirection: "rtl" }, style]}
       {...rest}
     />
   );
@@ -73,6 +75,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "prima
     : base;
   const off = disabled || loading;
   const reduced = useReducedMotion();
+  const F = useFontSet();
   return (
     <Pressable
       onPress={onPress}
@@ -96,7 +99,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = "prima
       ) : (
         <View style={styles.btnInner}>
           {Icon ? <Icon size={20} color={v.fg} strokeWidth={2} /> : null}
-          <Text style={[styles.btnText, { color: v.fg }]}>
+          <Text style={[styles.btnText, { color: v.fg, fontFamily: F.bold }]}>
             {title}
           </Text>
         </View>
@@ -126,6 +129,7 @@ interface FieldProps extends Omit<TextInputProps, "style"> {
 
 export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error, ltr, large, editable = true, onFocus, onBlur, colors, ...rest }, ref) => {
   const [focused, setFocused] = useState(false);
+  const F = useFontSet();
   const borderColor = error
     ? colors?.destructive ?? COLORS.destructive
     : focused
@@ -153,6 +157,7 @@ export const TextField = forwardRef<TextInput, FieldProps>(({ label, hint, error
         style={[
           styles.input,
           large && styles.inputLarge,
+          { fontFamily: large ? F.bold : F.medium },
           { borderColor, borderWidth: focused || error ? 1.5 : 1, backgroundColor: colors?.inputBackground ?? COLORS.inputBg, color: colors?.foreground ?? COLORS.foreground },
           !editable && styles.inputDisabled,
           ltr ? styles.ltr : styles.rtl,
